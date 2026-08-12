@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+
+# 前端构建产物
+frontend/dist/
+
+# 环境变量（含密钥，禁止提交）
+.env
+backend/.env
+
+# 实验数据（本地运行时生成）
+backend/data/experiments/*.json
+
+# 系统/编辑器
+.DS_Store
+*.log

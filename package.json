@@ -1,0 +1,15 @@
+{
+  "name": "god-view-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "门店上帝视角推演沙盘 — LLM 驱动图谱自生长推演引擎（Vite+Vue3 前端 / Express 后端代理）",
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "npm run start --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

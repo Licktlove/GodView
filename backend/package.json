@@ -1,0 +1,17 @@
+{
+  "name": "god-view-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "门店上帝视角推演沙盘 — 后端：LLM 代理 + 实验持久化",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
