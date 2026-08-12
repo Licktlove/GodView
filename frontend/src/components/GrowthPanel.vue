@@ -35,13 +35,13 @@ function render() {
   // Grid lines
   g.append('g').selectAll('line').data(y.ticks(4)).enter().append('line')
     .attr('x1', 0).attr('x2', w).attr('y1', d => y(d)).attr('y2', d => y(d))
-    .attr('stroke', '#F0F0F0').attr('stroke-width', 1);
+    .attr('stroke', 'rgba(15,0,0,0.08)').attr('stroke-width', 1);
 
   // Axes
   g.append('g').attr('transform', `translate(0,${h})`).call(d3.axisBottom(x).tickSize(0).tickPadding(6))
-    .selectAll('text').style('font-size', '9px').style('font-family', 'JetBrains Mono').style('fill', '#999');
+    .selectAll('text').style('font-size', '9px').style('font-family', 'JetBrains Mono').style('fill', '#201d1d');
   g.append('g').call(d3.axisLeft(y).ticks(4).tickSize(0).tickPadding(4))
-    .selectAll('text').style('font-size', '9px').style('font-family', 'JetBrains Mono').style('fill', '#999');
+    .selectAll('text').style('font-size', '9px').style('font-family', 'JetBrains Mono').style('fill', '#201d1d');
   g.selectAll('.domain').remove();
 
   const lineNodes = d3.line().x(d => x('R' + d.round)).y(d => y(d.nodes)).curve(d3.curveMonotoneX);
@@ -49,23 +49,23 @@ function render() {
 
   // Area for nodes
   const area = d3.area().x(d => x('R' + d.round)).y0(h).y1(d => y(d.nodes)).curve(d3.curveMonotoneX);
-  g.append('path').datum(store.growth).attr('d', area).attr('fill', '#FF4500').attr('opacity', 0.06);
+  g.append('path').datum(store.growth).attr('d', area).attr('fill', '#f68d1f').attr('opacity', 0.06);
 
   // Lines
   g.append('path').datum(store.growth).attr('d', lineNodes).attr('fill', 'none')
-    .attr('stroke', '#FF4500').attr('stroke-width', 2);
+    .attr('stroke', '#f68d1f').attr('stroke-width', 2);
   g.append('path').datum(store.growth).attr('d', lineEdges).attr('fill', 'none')
-    .attr('stroke', '#004E89').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 3');
+    .attr('stroke', '#201d1d').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 3');
 
   // Points
   g.selectAll('.pt-nodes').data(store.growth).enter().append('circle')
-    .attr('cx', d => x('R' + d.round)).attr('cy', d => y(d.nodes)).attr('r', 3).attr('fill', '#FF4500');
+    .attr('cx', d => x('R' + d.round)).attr('cy', d => y(d.nodes)).attr('r', 3).attr('fill', '#f68d1f');
   g.selectAll('.pt-edges').data(store.growth).enter().append('circle')
-    .attr('cx', d => x('R' + d.round)).attr('cy', d => y(d.edges)).attr('r', 2).attr('fill', '#004E89');
+    .attr('cx', d => x('R' + d.round)).attr('cy', d => y(d.edges)).attr('r', 2).attr('fill', '#201d1d');
 
   // Legend
-  g.append('text').attr('x', w - 60).attr('y', 4).text('● 节点').style('font-size', '9px').style('fill', '#FF4500').style('font-family', 'JetBrains Mono');
-  g.append('text').attr('x', w - 20).attr('y', 4).text('● 关系').style('font-size', '9px').style('fill', '#004E89').style('font-family', 'JetBrains Mono');
+  g.append('text').attr('x', w - 60).attr('y', 4).text('● 节点').style('font-size', '9px').style('fill', '#f68d1f').style('font-family', 'JetBrains Mono');
+  g.append('text').attr('x', w - 20).attr('y', 4).text('● 关系').style('font-size', '9px').style('fill', '#201d1d').style('font-family', 'JetBrains Mono');
 }
 
 onMounted(() => {

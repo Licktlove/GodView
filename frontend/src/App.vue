@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <header class="app-header">
-      <div class="header-left"><div class="brand">GOD-VIEW<span class="dot">.</span></div></div>
+      <div class="header-left"><div class="brand">GOD-VIEW<span class="dot"> · </span>SANDBOX</div></div>
       <div class="header-center">
         <div class="view-switcher">
           <button v-for="m in ['graph','split','workbench']" :key="m" class="switch-btn" :class="{active: viewMode===m}" @click="viewMode=m">

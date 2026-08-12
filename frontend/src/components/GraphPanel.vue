@@ -97,10 +97,10 @@ import { detectCommunities, detectBridgeNodes, detectConflicts } from '../engine
 defineEmits(['chat']);
 
 const TYPECOLOR = {
-  '顾客分群': '#0088CC', '门店': '#E91E63', '竞品': '#FF5722', '供应商': '#4CAF50',
-  '员工': '#9C27B0', '环境': '#607D8B', '商品': '#00BCD4', 'KPI': '#3F51B5', '组织': '#FF9800',
+  '顾客分群': '#007aff', '门店': '#ff9f0a', '竞品': '#ff3b30', '供应商': '#30d158',
+  '员工': '#9C27B0', '环境': '#607D8B', '商品': '#0066b1', 'KPI': '#bb86fc', '组织': '#ff9f0a',
 };
-const PALETTE = ['#0088CC','#E91E63','#FF5722','#4CAF50','#9C27B0','#607D8B','#00BCD4','#3F51B5','#FF9800','#795548','#009688','#CDDC39','#673AB7','#F44336','#03A9F4','#8BC34A'];
+const PALETTE = ['#201d1d','#ff3b30','#ff9f0a','#0fa336','#9C27B0','#607D8B','#0066b1','#bb86fc','#ff9f0a','#0653b6','#009688','#CDDC39','#673AB7','#FF5722','#03A9F4','#8BC34A'];
 
 const containerRef = ref(null);
 const svgRef = ref(null);
@@ -168,7 +168,7 @@ function renderGraph() {
   const linkGroup = g.append('g').attr('class', 'links');
   const link = linkGroup.selectAll('line')
     .data(links).enter().append('line')
-    .attr('stroke', '#CCCCCC')
+    .attr('stroke', 'rgba(15,0,0,0.12)')
     .attr('stroke-width', d => d._new ? 1.5 : 1)
     .attr('opacity', d => d._new ? 0.6 : 0.35)
     .style('cursor', 'pointer')
@@ -182,7 +182,7 @@ function renderGraph() {
       .data(links).enter().append('text')
       .text(d => d.relation || '')
       .attr('font-size', 9).attr('font-family', 'JetBrains Mono, monospace')
-      .attr('fill', '#999').attr('text-anchor', 'middle')
+      .attr('fill', '#646262').attr('text-anchor', 'middle')
       .attr('pointer-events', 'none');
   }
 
@@ -205,17 +205,17 @@ function renderGraph() {
       node.selectAll('circle')
         .attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.12)
         .attr('stroke-width', n => n.id === d.id ? 4 : (connectedIds.has(n.id) ? 2.5 : 1.5))
-        .attr('stroke', n => n.id === d.id ? '#00C8FF' : (connectedIds.has(n.id) ? '#00C8FF' : '#FFF'));
+        .attr('stroke', n => n.id === d.id ? '#201d1d' : (connectedIds.has(n.id) ? '#201d1d' : '#FFF'));
       node.selectAll('text')
         .attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.1)
         .attr('font-weight', n => n.id === d.id ? '700' : '400');
       // Dim all links, highlight connected
       link.attr('opacity', (l, i) => connectedEdgeIdx.has(i) ? 1 : 0.05)
           .attr('stroke-width', (l, i) => connectedEdgeIdx.has(i) ? 2.5 : 1)
-          .attr('stroke', (l, i) => connectedEdgeIdx.has(i) ? '#00C8FF' : '#D0D0D0');
+          .attr('stroke', (l, i) => connectedEdgeIdx.has(i) ? '#201d1d' : '#D0D0D0');
       if (linkLabels) {
         linkLabels.attr('opacity', (l, i) => connectedEdgeIdx.has(i) ? 1 : 0)
-                  .attr('fill', (l, i) => connectedEdgeIdx.has(i) ? '#00C8FF' : '#999')
+                  .attr('fill', (l, i) => connectedEdgeIdx.has(i) ? '#201d1d' : '#999')
                   .attr('font-weight', (l, i) => connectedEdgeIdx.has(i) ? '700' : '400');
       }
     })
@@ -224,13 +224,13 @@ function renderGraph() {
       node.selectAll('circle')
         .attr('opacity', 1)
         .attr('stroke-width', n => n._new ? 2 : 1.5)
-        .attr('stroke', n => n._new ? '#999' : '#FFF');
+        .attr('stroke', n => n._new ? '#201d1d' : '#ffffff');
       node.selectAll('text').attr('opacity', 1).attr('font-weight', '400');
       link.attr('opacity', l => l._new ? 0.6 : 0.35)
           .attr('stroke-width', l => l._new ? 1.5 : 1)
-          .attr('stroke', '#CCCCCC');
+          .attr('stroke', 'rgba(15,0,0,0.12)');
       if (linkLabels) {
-        linkLabels.attr('opacity', 1).attr('fill', '#999').attr('font-weight', '400');
+        linkLabels.attr('opacity', 1).attr('fill', '#646262').attr('font-weight', '400');
       }
     });
 
@@ -243,13 +243,13 @@ function renderGraph() {
   node.append('text')
     .text(d => d.name)
     .attr('font-size', 11).attr('font-family', 'Noto Sans SC, sans-serif')
-    .attr('fill', '#222')
+    .attr('fill', '#201d1d')
     .attr('dx', d => 6 + Math.sqrt(d._imp || 10) * 1.5 + 4)
     .attr('dy', 4)
     .attr('pointer-events', 'none');
 
   // Feature 5: Community background circles
-  const commColors = ['rgba(0,136,204,0.06)','rgba(233,30,99,0.06)','rgba(255,87,34,0.06)','rgba(76,175,80,0.06)','rgba(156,39,176,0.06)','rgba(255,152,0,0.06)'];
+  const commColors = ['rgba(0,122,255,0.06)','rgba(255,59,48,0.06)','rgba(255,159,10,0.06)','rgba(48,209,88,0.06)','rgba(110,110,115,0.06)','rgba(154,152,152,0.06)'];
   const commGroup = g.append('g').attr('class', 'communities').lower();
   localCommunities.value.forEach((comm, ci) => {
     commGroup.append('circle')
@@ -265,7 +265,7 @@ function renderGraph() {
   const conflictEdgeSet = new Set();
   localConflicts.value.forEach(c => { conflictEdgeSet.add(c.edge1Idx); conflictEdgeSet.add(c.edge2Idx); });
   link.attr('stroke-dasharray', (d, i) => conflictEdgeSet.has(i) ? '5 3' : null)
-      .attr('stroke', (d, i) => conflictEdgeSet.has(i) ? '#F44336' : '#CCCCCC');
+      .attr('stroke', (d, i) => conflictEdgeSet.has(i) ? '#ff3b30' : '#CCCCCC');
 
   // Feature 5: Bridge node markers (outer ring)
   node.selectAll('circle.bridge-ring').remove();
@@ -274,7 +274,7 @@ function renderGraph() {
     .attr('class', 'bridge-ring')
     .attr('r', d => 6 + Math.sqrt(d._imp || 10) * 1.5 + 6)
     .attr('fill', 'none')
-    .attr('stroke', '#FF9800')
+    .attr('stroke', '#ff9f0a')
     .attr('stroke-width', 1.5)
     .attr('stroke-dasharray', '3 2');
 
