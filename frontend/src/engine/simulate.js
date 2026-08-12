@@ -1,26 +1,31 @@
 import { store, pushLog, addEpisode } from '../store/sim';
 import { callChat } from '../services/llm';
 import { computeImportance } from './importance';
+import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 
 export { computeImportance };
 
 const TYPECOLOR = {
-  '顾客分群': '#FF6B35', '门店': '#004E89', '竞品': '#C5283D', '供应商': '#1A936F',
-  '员工': '#795548', '环境': '#9E9E9E', '商品': '#4CAF50', 'KPI': '#FFC107', '组织': '#9C27B0',
+  '顾客分群': '#0088CC', '门店': '#E91E63', '竞品': '#FF5722', '供应商': '#4CAF50',
+  '员工': '#9C27B0', '环境': '#607D8B', '商品': '#00BCD4', 'KPI': '#3F51B5', '组织': '#FF9800',
 };
 export { TYPECOLOR };
 
 const PERSON_TYPES = ['顾客分群', '门店', '员工', '竞品', '供应商', '组织', '物流', '平台', '媒体'];
 const OBJECT_TYPES = ['商品', '环境', 'KPI'];
 const PERSON_KEYWORDS = ['人', '客', '员', '长', '师', '者', '商', '户', '家', '管', '导', '工', '手', '达'];
-function isPersonType(type) { if (PERSON_TYPES.includes(type)) return true; if (OBJECT_TYPES.includes(type)) return false; return PERSON_KEYWORDS.some(k => type.includes(k)); }
+function isPersonType(type) {
+  if (PERSON_TYPES.includes(type)) return true;
+  if (OBJECT_TYPES.includes(type)) return false;
+  return PERSON_KEYWORDS.some(k => type.includes(k));
+}
 
 // ============ Step 1: Generate Entities + Auto-recommend params ============
 
 const SYS_GEN =
   '你是零售决策推演引擎。根据用户给出的经营场景，自动实例化一批在该场景中会相互作用的实体。每个实体要有鲜明人格/目标。';
 const USR_GEN = (N, seed) =>
-  `场景：${seed}\n请生成最多 ${N} 个实体。\n基础类型有9种：顾客分群、门店、竞品、供应商、员工、环境、商品、KPI、组织。你也可以根据场景需要创建新的实体类型（如物流、平台、政策、媒体等）。\n严格输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型(基础9种或自定义新类型)","persona":"一句话人格/行为特征","goal":"核心目标"}],"recommend":{"rounds":推荐推演轮数3-200的整数,"perR":每轮焦点实体数3-200的整数,"reason":"推荐理由"}}`;
+  `场景：${seed}\n请生成最多 ${N} 个实体。\n基础类型有9种：顾客分群、门店、竞品、供应商、员工、环境、商品、KPI、组织。你也可以根据场景需要创建新的实体类型。\n严格输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型","persona":"一句话人格/行为特征","goal":"核心目标"}],"recommend":{"rounds":推荐推演轮数3-200的整数,"perR":每轮焦点实体数3-200的整数,"reason":"推荐理由"}}`;
 
 export async function genEntities() {
   const N = +store.entN;
@@ -29,6 +34,8 @@ export async function genEntities() {
   store.ui.genRunning = true;
   store.ui.b1 = 'processing';
   store.entities = []; store.edges = []; store.growth = []; store.episodes = {};
+  store.causalChains = []; store.decisions = []; store.conflicts = [];
+  store.communities = []; store.bridgeNodes = [];
   try {
     const data = await callChat(
       [{ role: 'system', content: SYS_GEN }, { role: 'user', content: USR_GEN(N, seed) }],
@@ -40,14 +47,11 @@ export async function genEntities() {
       .slice(0, N);
     if (!store.entities.length) throw new Error('未返回实体');
     pushLog(`LLM 生成实体 ${store.entities.length} 个`, 'ac');
-
-    // Auto-recommend params (feature 5)
     if (data.recommend) {
       const r = data.recommend;
       if (r.rounds) { store.rounds = Math.max(1, Math.min(200, r.rounds)); pushLog(`推荐轮数: ${store.rounds}（${r.reason || ''}）`, 'ac'); }
       if (r.perR) { store.perR = Math.max(1, Math.min(200, r.perR)); }
     }
-
     store.ui.b1 = 'success';
     store.ui.step1Done = true;
     store.growth = [{ round: 0, nodes: store.entities.length, edges: 0 }];
@@ -59,17 +63,15 @@ export async function genEntities() {
   }
 }
 
-// ============ Entity Profile Enrichment (feature 3) ============
+// ============ Entity Profile Enrichment ============
 
-const SYS_ENRICH_PERSON =
-  '你是零售角色设计师。为给定实体生成丰富的人物画像，包括年龄、性别、MBTI、详细背景故事和行为偏好。输出JSON。';
+const SYS_ENRICH_PERSON = '你是零售角色设计师。为给定实体生成丰富的人物画像。输出JSON。';
 const USR_ENRICH_PERSON = (e) =>
-  `实体：${e.name}（类型：${e.type}）\n基础人格：${e.persona || '—'}\n目标：${e.goal || '—'}\n请生成详细画像。输出JSON：{"age":年龄整数或null,"gender":"男|女|未知","mbti":"MBTI类型","bio":"2-3句详细背景故事","traits":["性格特征关键词"],"preferences":["行为偏好"]}`;
+  `实体：${e.name}（类型：${e.type}）\n基础人格：${e.persona || '—'}\n目标：${e.goal || '—'}\n输出JSON：{"age":年龄或null,"gender":"男|女|未知","mbti":"MBTI","bio":"2-3句背景","traits":["特征"],"preferences":["偏好"]}`;
 
-const SYS_ENRICH_OBJECT =
-  '你是零售商品/环境分析师。为给定实体生成丰富的属性描述，包括规格、影响力、趋势等。输出JSON。';
+const SYS_ENRICH_OBJECT = '你是零售商品/环境分析师。为给定实体生成丰富的属性描述。输出JSON。';
 const USR_ENRICH_OBJECT = (e) =>
-  `实体：${e.name}（类型：${e.type}）\n基础描述：${e.persona || '—'}\n目标/作用：${e.goal || '—'}\n请生成详细属性。输出JSON：{"specs":"规格/特征描述","impact":"对经营的影响力分析","trend":"趋势判断","lifecycle":"生命周期描述","attributes":{"自定义属性名":"属性值"}}`;
+  `实体：${e.name}（类型：${e.type}）\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}\n输出JSON：{"specs":"规格","impact":"影响力","trend":"趋势","lifecycle":"生命周期","attributes":{"属性名":"值"}}`;
 
 export async function enrichProfiles() {
   if (!store.entities.length) { pushLog('请先生成实体', 'err'); return; }
@@ -92,20 +94,17 @@ export async function enrichProfiles() {
         e.lifecycle = data.lifecycle; e.attributes = data.attributes || {};
       }
       enriched++;
-    } catch (err) {
-      pushLog(`丰富 ${e.name} 失败：${err.message}`, 'err');
-    }
+    } catch (err) { pushLog(`丰富 ${e.name} 失败：${err.message}`, 'err'); }
   }
   pushLog(`✓ 画像丰富完成：${enriched}/${store.entities.length}`, 'ok');
   store.ui.enrichRunning = false;
 }
 
-// ============ Step 2: Self-growth Simulation (feature 4 + 7) ============
+// ============ Step 2: Self-growth Simulation ============
 
-const SYS_ROUND =
-  '你是零售推演模拟器。给定当前世界状态，让焦点实体基于人格行动，可能产生新关系或催生新实体。输出严格JSON。';
+const SYS_ROUND = '你是零售推演模拟器。让焦点实体基于人格行动，可能产生新关系或催生新实体。输出严格JSON。';
 const USR_ROUND = (e, round, total, summary) =>
-  `当前世界：\n${summary}\n\n焦点实体：${e.name}（人格：${e.persona || '—'}；目标：${e.goal || '—'}）\n轮次 ${round}/${total}。\n输出JSON：{"interactions":[{"from":"焦点实体名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"对经营指标影响简述"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型(基础9种或自定义新类型)","persona":"一句话","goal":"核心目标"}]}`;
+  `当前世界：\n${summary}\n\n焦点实体：${e.name}（人格：${e.persona || '—'}；目标：${e.goal || '—'}）\n轮次 ${round}/${total}。\n输出JSON：{"interactions":[{"from":"焦点实体名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"对经营指标影响简述"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型","persona":"一句话","goal":"核心目标"}]}`;
 
 function nameToId(s) {
   if (!s) return null;
@@ -118,12 +117,12 @@ function sample(arr, k) {
   return a.slice(0, k);
 }
 function graphSummary() {
-  const ents = store.entities.map(e => `${e.name}(${e.type})`).join('、');
+  const ents = store.entities.map(e => e.name + '(' + e.type + ')').join('、');
   const eds = store.edges.length
     ? '\n已有关系：' + store.edges.slice(0, 30).map(x => {
         const s = store.entities.find(y => y.id === x.source);
         const t = store.entities.find(y => y.id === x.target);
-        return `${s ? s.name : x.source}→${t ? t.name : x.target}:${x.relation || ''}`;
+        return (s ? s.name : x.source) + '→' + (t ? t.name : x.target) + ':' + (x.relation || '');
       }).join('；')
     : '（暂无边）';
   return ents + eds;
@@ -138,25 +137,23 @@ async function runRound(round, total) {
         [{ role: 'system', content: SYS_ROUND }, { role: 'user', content: USR_ROUND(e, round, total, graphSummary()) }],
         { json: true, temperature: 0.9, max_tokens: 1500 }
       );
-    } catch (err) {
-      pushLog(`轮${round} ${e.name} 交互失败：${err.message}`, 'err');
-      continue;
-    }
+    } catch (err) { pushLog(`轮${round} ${e.name} 交互失败：${err.message}`, 'err'); continue; }
     (data.interactions || []).forEach(it => {
       const f = nameToId(it.from);
       const t = nameToId(it.to);
       if (f && t && f !== t) {
         if (!store.edges.some(x => x.source === f && x.target === t && x.relation === it.relation)) {
-          // Feature 7: temporal edges - track round and status
-          store.edges.push({ source: f, target: t, relation: it.relation, _new: true, round, status: 'active' });
+          store.edges.push({
+            source: f, target: t, relation: it.relation, _new: true, round, status: 'active',
+            created_by: e.id, reason: it.effect || '', effect: it.effect || '',
+          });
         }
       }
-      // Feature 4: episode logging
       if (it.effect) {
         const targetName = store.entities.find(x => x.id === nameToId(it.to))?.name || it.to;
-        addEpisode(e.id, { round, text: `与${targetName}的${it.relation || '互动'}：${it.effect}`, targetName, relation: it.relation, effect: it.effect });
+        addEpisode(e.id, { round, text: '与' + targetName + '的' + (it.relation || '互动') + '：' + it.effect, targetName, relation: it.relation, effect: it.effect });
         if (f && t && f !== e.id) {
-          addEpisode(t, { round, text: `被${e.name}${it.relation || '互动'}：${it.effect}`, targetName: e.name, relation: it.relation, effect: it.effect });
+          addEpisode(t, { round, text: '被' + e.name + (it.relation || '互动') + '：' + it.effect, targetName: e.name, relation: it.relation, effect: it.effect });
         }
       }
     });
@@ -171,6 +168,15 @@ async function runRound(round, total) {
   store.growth.push({ round, nodes: store.entities.length, edges: store.edges.length });
 }
 
+// Feature 1 + 5: Analytics after simulation
+function runAnalytics() {
+  store.conflicts = detectConflicts(store.edges);
+  if (store.conflicts.length) pushLog(`⚠ 检测到 ${store.conflicts.length} 对冲突关系`, 'err');
+  store.communities = detectCommunities(store.entities, store.edges);
+  store.bridgeNodes = detectBridgeNodes(store.entities, store.edges, store.communities);
+  if (store.communities.length) pushLog(`图谱分析：${store.communities.length} 个群体，${store.bridgeNodes.length} 个桥节点`, 'ac');
+}
+
 export async function runSim() {
   if (!store.ui.step1Done) { pushLog('请先生成实体', 'err'); return; }
   store.ui.simRunning = true;
@@ -179,6 +185,7 @@ export async function runSim() {
   pushLog(`▶ 启动自生长推演：${total} 轮，每轮 ${store.perR} 实体`, 'ac');
   try {
     for (let r = 1; r <= total; r++) { await runRound(r, total); }
+    runAnalytics();
     pushLog(`✓ 推演完成：节点 ${store.entities.length}，关系 ${store.edges.length}`, 'ok');
     store.ui.b2 = 'success';
   } catch (err) {
@@ -189,15 +196,13 @@ export async function runSim() {
   }
 }
 
-// ============ Step 3: ReACT Multi-section Report (feature 2) ============
+// ============ Step 3: ReACT Multi-section Report ============
 
-const SYS_OUTLINE =
-  '你是零售决策参谋。基于推演终态世界，规划一份结构化预测报告的大纲。输出JSON。';
+const SYS_OUTLINE = '你是零售决策参谋。基于推演终态，规划结构化预测报告的大纲。输出JSON。';
 const USR_OUTLINE = (summary, seed) =>
   `推演场景：${seed}\n推演终态：\n${summary}\n\n请规划报告大纲。输出JSON：{"title":"报告标题","summary":"一句话摘要","sections":[{"title":"章节标题"}]}`;
 
-const SYS_SECTION =
-  '你是零售决策分析师。基于推演数据和报告大纲，撰写指定章节的详细内容。使用Markdown格式。内容要有数据支撑、有因果分析。严禁把推演当作确定预测。';
+const SYS_SECTION = '你是零售决策分析师。撰写指定章节的详细内容。Markdown格式。80-150字，简洁精炼。';
 
 export async function genReport() {
   if (!store.entities.length) { pushLog('请先推演', 'err'); return; }
@@ -206,16 +211,17 @@ export async function genReport() {
   store.reportOutline = null;
   store.reportSections = {};
   store.report = null;
+  store.causalChains = [];
+  store.decisions = [];
 
-  const summary = '实体：' + store.entities.map(e => `${e.name}(${e.type})`).join('、') +
+  const summary = '实体：' + store.entities.map(e => e.name + '(' + e.type + ')').join('、') +
     '\n关系：' + store.edges.slice(0, 60).map(x => {
       const s = store.entities.find(y => y.id === x.source);
       const t = store.entities.find(y => y.id === x.target);
-      return `${s ? s.name : x.source}→${t ? t.name : x.target}:${x.relation || ''}${x.round ? '(R'+x.round+')' : ''}`;
+      return (s ? s.name : x.source) + '→' + (t ? t.name : x.target) + ':' + (x.relation || '') + (x.round ? '(R' + x.round + ')' : '');
     }).join('；');
 
   try {
-    // Phase 1: Generate outline
     pushLog('报告规划中…', 'ac');
     const outline = await callChat(
       [{ role: 'system', content: SYS_OUTLINE }, { role: 'user', content: USR_OUTLINE(summary, store.seed) }],
@@ -224,19 +230,16 @@ export async function genReport() {
     store.reportOutline = outline;
     pushLog(`报告大纲：${outline.sections?.length || 0} 章节`, 'ac');
 
-    // Phase 2: Generate each section
     const sections = outline.sections || [];
     for (let i = 0; i < sections.length; i++) {
       store.reportSections[i] = { content: '', status: 'generating' };
       pushLog(`生成章节 ${i + 1}/${sections.length}：${sections[i].title}…`, 'ac');
       try {
-        const sectionSummary = summary + `\n\n已有章节：` + Object.values(store.reportSections)
-          .filter(s => s.status === 'done')
-          .map(s => s.content.slice(0, 100))
-          .join('；');
+        const sectionSummary = summary + '\n\n已有章节：' + Object.values(store.reportSections)
+          .filter(s => s.status === 'done').map(s => s.content.slice(0, 100)).join('；');
         const content = await callChat(
           [{ role: 'system', content: SYS_SECTION },
-           { role: 'user', content: `报告标题：${outline.title}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节内容（Markdown格式，300-600字）。` }],
+           { role: 'user', content: `报告标题：${outline.title}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节内容（80-150字）。` }],
           { json: false, temperature: 0.6, max_tokens: 1500 }
         );
         store.reportSections[i] = { content: content || '（生成失败）', status: 'done' };
@@ -247,12 +250,15 @@ export async function genReport() {
       }
     }
 
-    // Phase 3: Assemble final report with redline
+    // Feature 3: Extract causal chains
+    store.causalChains = await extractCausalChains(summary);
+    // Feature 2: Extract structured decisions
+    store.decisions = await extractDecisions(summary);
+
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
     store.report = {
       verdict: outline.summary || outline.title,
-      pros: [], cons: [], actions: [], causality: '', risks: [],
-      confidence: 0.5, confidence_note: '多章节 ReACT 报告，置信度基于推演内部自洽度评估。',
+      confidence: 0.5, confidence_note: '多章节 ReACT 报告',
       fullContent: allContent,
     };
     store.ui.b3 = 'success';
@@ -266,13 +272,44 @@ export async function genReport() {
   }
 }
 
-// ============ Step 4: Deep Interaction (feature 1) ============
+// ============ Feature 3: Causal Chain Extraction ============
+
+async function extractCausalChains(summary) {
+  try {
+    const data = await callChat([
+      { role: 'system', content: '你是因果分析专家。从推演数据中提取关键因果链。输出JSON。' },
+      { role: 'user', content: '推演终态：\n' + summary + '\n\n请提取3-5条最重要的因果链。输出JSON：{"chains":[{"path":["实体名1","实体名2","实体名3"],"relations":["关系1","关系2"],"effect":"最终影响","confidence":0.0-1.0}]}' }
+    ], { json: true, temperature: 0.4, max_tokens: 1000 });
+    const chains = (data.chains || []).map(c => ({
+      ...c,
+      path: (c.path || []).map(name => { const e = store.entities.find(x => x.name === name); return e ? e.id : null; }).filter(Boolean),
+    }));
+    pushLog('提取因果链 ' + chains.length + ' 条', 'ac');
+    return chains;
+  } catch (e) { pushLog('因果链提取失败：' + e.message, 'err'); return []; }
+}
+
+// ============ Feature 2: Decision Objects ============
+
+async function extractDecisions(summary) {
+  try {
+    const data = await callChat([
+      { role: 'system', content: '你是零售决策顾问。基于推演结果生成结构化决策建议。输出JSON。' },
+      { role: 'user', content: '推演终态：\n' + summary + '\n\n请生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0,"based_on":["依据"]}]}' }
+    ], { json: true, temperature: 0.5, max_tokens: 1000 });
+    const decisions = (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
+    pushLog('生成决策建议 ' + decisions.length + ' 条', 'ac');
+    return decisions;
+  } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
+}
+
+// ============ Step 4: Deep Interaction ============
 
 const SYS_CHAT_PERSON = (e, episodes) =>
-  `你现在是「${e.name}」，一个${e.type}。你在零售推演世界中行动。\n人格：${e.persona || '—'}\n目标：${e.goal || '—'}${e.bio ? '\n背景：' + e.bio : ''}${e.traits ? '\n特征：' + e.traits.join('、') : ''}\n\n你在推演中的经历：\n${episodes || '（暂无交互记录）'}\n\n请以该角色身份回答用户的问题。保持角色一致，基于你的经历和人格回答。不要脱离角色。`;
+  `你现在是「${e.name}」，一个${e.type}。你在零售推演世界中行动。\n人格：${e.persona || '—'}\n目标：${e.goal || '—'}${e.bio ? '\n背景：' + e.bio : ''}${e.traits ? '\n特征：' + e.traits.join('、') : ''}\n\n你在推演中的经历：\n${episodes || '（暂无交互记录）'}\n\n请以该角色身份回答用户问题。保持角色一致。`;
 
 const SYS_CHAT_OBJECT = (e, episodes) =>
-  `你现在是「${e.name}」，一个${e.type}实体。虽然你不是人，但请以拟人化方式描述你的状态和影响。\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}${e.specs ? '\n规格：' + e.specs : ''}${e.impact ? '\n影响力：' + e.impact : ''}\n\n在推演中的变化：\n${episodes || '（暂无变化记录）'}\n\n请以该实体视角回答用户问题。`;
+  `你现在是「${e.name}」，一个${e.type}实体。以拟人化方式描述你的状态和影响。\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}${e.specs ? '\n规格：' + e.specs : ''}${e.impact ? '\n影响力：' + e.impact : ''}\n\n在推演中的变化：\n${episodes || '（暂无变化记录）'}\n\n请以该实体视角回答用户问题。`;
 
 export async function interactWith(entityId, userMessage) {
   const e = store.entities.find(x => x.id === entityId);
@@ -280,15 +317,13 @@ export async function interactWith(entityId, userMessage) {
   store.chat.running = true;
   store.chat.target = entityId;
   store.chat.messages.push({ role: 'user', content: userMessage });
-
-  const eps = (store.episodes[entityId] || []).map(ep => `[R${ep.round}] ${ep.text}`).join('\n');
+  const eps = (store.episodes[entityId] || []).map(ep => '[R' + ep.round + '] ' + ep.text).join('\n');
   const isPerson = isPersonType(e.type);
   const sysContent = isPerson ? SYS_CHAT_PERSON(e, eps) : SYS_CHAT_OBJECT(e, eps);
   const messages = [
     { role: 'system', content: sysContent },
     ...store.chat.messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
   ];
-
   try {
     const reply = await callChat(messages, { json: false, temperature: 0.8, max_tokens: 800 });
     store.chat.messages.push({ role: 'assistant', content: reply || '（无回复）' });
@@ -306,7 +341,7 @@ export function startChat(entityId) {
   store.chat.target = entityId;
   store.chat.messages = [];
   store.ui.b4 = 'processing';
-  pushLog(`开始与「${e.name}」深度互动`, 'ac');
+  pushLog('开始与「' + e.name + '」深度互动', 'ac');
 }
 
 export function endChat() {

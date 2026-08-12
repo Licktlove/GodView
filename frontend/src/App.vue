@@ -111,7 +111,66 @@
 
             </div>
 
-            <!-- Step 4: Deep Interaction -->
+                        <!-- Feature 3: Causal Chains -->
+            <div class="report-card" v-if="store.causalChains.length">
+              <h3>因果链分析</h3>
+              <p class="description" style="margin-bottom:10px">点击因果链在图谱中高亮路径</p>
+              <div v-for="(chain, i) in store.causalChains" :key="i" class="causal-chain-item" @click="highlightCausalChain(i)">
+                <div class="causal-chain-path">
+                  <span v-for="(id, j) in chain.path" :key="j" class="chain-node">
+                    {{ entityName(id) }}
+                    <span v-if="j < chain.path.length - 1" class="chain-arrow">→</span>
+                  </span>
+                </div>
+                <div class="causal-chain-effect">
+                  <span class="badge" :class="chain.confidence >= 0.7 ? 'success' : 'processing'">{{ Math.round(chain.confidence * 100) }}%</span>
+                  {{ chain.effect }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Feature 2: Decisions -->
+            <div class="report-card" v-if="store.decisions.length">
+              <h3>决策建议</h3>
+              <div v-for="(d, i) in store.decisions" :key="i" class="decision-item">
+                <div class="decision-header">
+                  <span class="decision-id">{{ d.id }}</span>
+                  <span class="decision-action">{{ d.action }}</span>
+                  <span class="badge" :class="d.confidence >= 0.7 ? 'success' : 'processing'">{{ Math.round(d.confidence * 100) }}%</span>
+                </div>
+                <div class="decision-reasoning">{{ d.reasoning }}</div>
+                <div class="decision-gain">预期：{{ d.expected_gain }}</div>
+              </div>
+            </div>
+
+            <!-- Feature 1: Conflicts -->
+            <div class="report-card" v-if="store.conflicts.length">
+              <h3 style="color:#F44336">⚠ 冲突关系 ({{ store.conflicts.length }})</h3>
+              <div v-for="(c, i) in store.conflicts" :key="i" class="conflict-item">
+                <span class="conflict-rel">{{ c.rel1 }}</span>
+                <span class="conflict-arrow">↔</span>
+                <span class="conflict-rel">{{ c.rel2 }}</span>
+                <span class="conflict-round">R{{ c.round1 }} vs R{{ c.round2 }}</span>
+              </div>
+            </div>
+
+            <!-- Feature 5: Graph Analytics -->
+            <div class="report-card" v-if="store.communities.length">
+              <h3>图谱分析</h3>
+              <div class="analytics-row">
+                <span class="analytics-label">群体聚类</span>
+                <span class="analytics-val">{{ store.communities.length }} 个</span>
+              </div>
+              <div v-for="(comm, i) in store.communities" :key="i" class="community-item">
+                <span class="community-label">{{ comm.label }}</span>
+                <span class="community-members">{{ comm.members.map(id => entityName(id)).join('、') }}</span>
+              </div>
+              <div class="analytics-row" v-if="store.bridgeNodes.length">
+                <span class="analytics-label">桥节点</span>
+                <span class="analytics-val">{{ store.bridgeNodes.map(id => entityName(id)).join('、') }}</span>
+              </div>
+            </div>
+<!-- Step 4: Deep Interaction -->
             <div class="step-card" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
               <div class="card-header">
                 <div class="step-info" @click="toggleStep(4)"><span class="step-num">04</span><span class="step-title">深度互动</span><span class="step-collapse-icon">{{ collapsedSteps.has(4) ? "▸" : "▾" }}</span></div>
@@ -260,6 +319,10 @@ function showNode(e) {
 }
 
 function onChatFromGraph(node) { startChat(node.id); }
+function entityName(id) { return store.entities.find(e => e.id === id)?.name || id; }
+function highlightCausalChain(idx) {
+  store.causalChains.forEach((c, i) => { c._highlight = (i === idx) ? !c._highlight : false; });
+}
 
 async function sendChat() {
   if (!chatInput.value.trim() || store.chat.running) return;

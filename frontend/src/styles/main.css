@@ -322,3 +322,40 @@ input:checked + .slider:before { transform: translateX(16px); }
   text-align: center; font-size: 10px; color: #BBB; font-family: var(--font-mono);
   padding: 16px 0 24px; letter-spacing: 0.5px;
 }
+/* ===== Causal Chains ===== */
+.causal-chain-item {
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;
+  cursor: pointer; transition: all 0.2s;
+}
+.causal-chain-item:hover { border-color: #00C8FF; box-shadow: 0 0 0 2px rgba(0,200,255,0.08); }
+.causal-chain-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.chain-node { font-size: 12px; font-weight: 600; color: #333; }
+.chain-arrow { color: #00C8FF; font-size: 11px; margin: 0 2px; }
+.causal-chain-effect { font-size: 11px; color: #666; display: flex; align-items: center; gap: 6px; }
+
+/* ===== Decisions ===== */
+.decision-item {
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;
+}
+.decision-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.decision-id { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: #999; }
+.decision-action { flex: 1; font-size: 12px; font-weight: 600; }
+.decision-reasoning { font-size: 11px; color: #666; margin: 4px 0; }
+.decision-gain { font-size: 11px; color: var(--orange); font-weight: 600; }
+
+/* ===== Conflicts ===== */
+.conflict-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 4px;
+  background: #FFF5F5; border: 1px solid #FFCDD2; border-radius: 4px; font-size: 11px;
+}
+.conflict-rel { font-weight: 600; color: #C62828; }
+.conflict-arrow { color: #999; }
+.conflict-round { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: #999; }
+
+/* ===== Graph Analytics ===== */
+.analytics-row { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; }
+.analytics-label { color: #999; min-width: 70px; }
+.analytics-val { color: #333; font-weight: 600; }
+.community-item { display: flex; gap: 8px; padding: 4px 0; font-size: 11px; }
+.community-label { color: var(--orange); font-weight: 600; min-width: 50px; }
+.community-members { color: #555; }

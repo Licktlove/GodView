@@ -92,6 +92,7 @@ import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import * as d3 from 'd3';
 import { store } from '../store/sim';
 import { computeImportance } from '../engine/simulate';
+import { detectCommunities, detectBridgeNodes, detectConflicts } from '../engine/analytics';
 
 defineEmits(['chat']);
 
@@ -106,6 +107,10 @@ const svgRef = ref(null);
 const selectedNode = ref(null);
 const showEdgeLabels = ref(true);
 const legendOpen = ref(true);
+const highlightChain = ref(null);  // causal chain path to highlight
+const localCommunities = ref([]);
+const localConflicts = ref([]);
+const localBridges = ref([]);
 let simulation = null;
 
 function typeColor(type) { return TYPECOLOR[type] || PALETTE[0]; }
@@ -130,6 +135,10 @@ function renderGraph() {
   if (width < 10 || height < 10) return;
 
   if (simulation) { simulation.stop(); simulation = null; }
+  // Feature 1+5: compute analytics
+  localConflicts.value = detectConflicts(store.edges);
+  localCommunities.value = detectCommunities(store.entities, store.edges);
+  localBridges.value = detectBridgeNodes(store.entities, store.edges, localCommunities.value);
 
   const svg = d3.select(svgRef.value).attr('width', width).attr('height', height);
   svg.selectAll('*').remove();
@@ -238,6 +247,36 @@ function renderGraph() {
     .attr('dx', d => 6 + Math.sqrt(d._imp || 10) * 1.5 + 4)
     .attr('dy', 4)
     .attr('pointer-events', 'none');
+
+  // Feature 5: Community background circles
+  const commColors = ['rgba(0,136,204,0.06)','rgba(233,30,99,0.06)','rgba(255,87,34,0.06)','rgba(76,175,80,0.06)','rgba(156,39,176,0.06)','rgba(255,152,0,0.06)'];
+  const commGroup = g.append('g').attr('class', 'communities').lower();
+  localCommunities.value.forEach((comm, ci) => {
+    commGroup.append('circle')
+      .attr('class', 'community-bg')
+      .attr('fill', commColors[ci % commColors.length])
+      .attr('stroke', commColors[ci % commColors.length].replace('0.06','0.15'))
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '4 4')
+      .attr('r', 0);
+  });
+
+  // Feature 1: Mark conflict edges with red dashed
+  const conflictEdgeSet = new Set();
+  localConflicts.value.forEach(c => { conflictEdgeSet.add(c.edge1Idx); conflictEdgeSet.add(c.edge2Idx); });
+  link.attr('stroke-dasharray', (d, i) => conflictEdgeSet.has(i) ? '5 3' : null)
+      .attr('stroke', (d, i) => conflictEdgeSet.has(i) ? '#F44336' : '#CCCCCC');
+
+  // Feature 5: Bridge node markers (outer ring)
+  node.selectAll('circle.bridge-ring').remove();
+  node.filter(d => localBridges.value.includes(d.id))
+    .insert('circle', ':first-child')
+    .attr('class', 'bridge-ring')
+    .attr('r', d => 6 + Math.sqrt(d._imp || 10) * 1.5 + 6)
+    .attr('fill', 'none')
+    .attr('stroke', '#FF9800')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-dasharray', '3 2');
 
   // Background click clears selection
   svg.on('click', () => { selectedNode.value = null; });
