@@ -81,6 +81,76 @@ app.post('/api/chat', async (req, res) => {
   res.json({ content, usage: d.usage || null });
 });
 
+// ---------- LLM SSE 流式代理（真流式：逐 token 透传，报告/对话可实时渲染） ----------
+app.post('/api/chat/stream', async (req, res) => {
+  const { messages, temperature = 0.7, max_tokens = 2048 } = req.body || {};
+  if (!LLM_API_KEY) {
+    res.status(400).json({ error: 'LLM_API_KEY 未配置：请在 backend/.env 设置 LLM_API_KEY' });
+    return;
+  }
+  if (!Array.isArray(messages) || !messages.length) {
+    res.status(400).json({ error: 'messages 不能为空' });
+    return;
+  }
+  const adjTemp = /^kimi-k[23]/.test(LLM_MODEL) ? 1 : temperature;
+  const adjMax = /^kimi-k[23]/.test(LLM_MODEL) ? Math.max(max_tokens, 6000) : max_tokens;
+  const body = { model: LLM_MODEL, messages, temperature: adjTemp, max_tokens: adjMax, stream: true };
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  let upstream;
+  try {
+    upstream = await fetch(LLM_BASE_URL + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LLM_API_KEY },
+      body: JSON.stringify(body),
+    });
+  } catch (netErr) {
+    res.write(`data: ${JSON.stringify({ error: '上游 LLM 请求失败：' + (netErr.message || netErr) })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+    return;
+  }
+  if (!upstream.ok) {
+    const txt = await upstream.text();
+    res.write(`data: ${JSON.stringify({ error: '上游 LLM 返回错误 HTTP ' + upstream.status, detail: txt.slice(0, 400) })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+    return;
+  }
+
+  // 逐块透传上游 SSE（OpenAI / dashscope 兼容格式）
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      // 上游以 \n\n 分隔事件，逐条转发
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        if (chunk.startsWith('data:')) res.write(chunk + '\n\n');
+      }
+    }
+    if (buf.trim()) res.write(buf + '\n\n');
+    res.write('data: [DONE]\n\n');
+  } catch (e) {
+    res.write(`data: ${JSON.stringify({ error: '流式读取中断：' + (e.message || e) })}\n\n`);
+    res.write('data: [DONE]\n\n');
+  } finally {
+    res.end();
+  }
+});
+
 // ---------- 实验持久化（JSON 文件） ----------
 function safeId(id) {
   return /^[A-Za-z0-9_\-]+$/.test(id) ? id : null;

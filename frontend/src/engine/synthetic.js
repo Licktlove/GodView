@@ -1,46 +1,14 @@
 import { store, pushLog, addEpisode } from '../store/sim';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 
-const POOL = [
-  { id: 'price_sensitive', name: '价格敏感客群', type: '顾客分群', persona: '只认折扣，决策快', goal: '最低到手价',
-    age: 35, gender: '未知', mbti: 'ESTP', bio: '精打细算，活跃于社区团购群', traits: ['价格敏感','决策快'], preferences: ['比价','囤货'] },
-  { id: 'loyal_vip', name: '高忠诚会员', type: '顾客分群', persona: '认品牌与服务', goal: '稳定复购',
-    age: 42, gender: '女', mbti: 'ISFJ', bio: '注重品质，复购率超60%', traits: ['品质导向','高忠诚'], preferences: ['预售','尊享'] },
-  { id: 'store_mgr', name: '本店店长', type: '门店', persona: '扛指标、怕库存', goal: '坪效与毛利',
-    age: 38, gender: '男', mbti: 'ENTJ', bio: '零售老兵10年，背负GMV考核', traits: ['结果导向','抗压'], preferences: ['数据驱动'] },
-  { id: 'competitor', name: '街角竞品', type: '竞品', persona: 'aggressive 促销', goal: '抢客流',
-    age: null, gender: '未知', mbti: 'ESTP', bio: '新开业3个月，烧钱补贴', traits: ['激进','烧钱'], preferences: ['低价爆破'] },
-  { id: 'supplier', name: '生鲜供应商', type: '供应商', persona: '控交货与账期', goal: '稳定大单',
-    age: 50, gender: '男', mbti: 'ISTJ', bio: '本地最大生鲜批发商', traits: ['保守','控盘'], preferences: ['大客户优先'] },
-  { id: 'staff', name: '导购员', type: '员工', persona: '靠提成', goal: '高客单',
-    age: 26, gender: '女', mbti: 'ESFP', bio: '亲和力强，擅长关联推荐', traits: ['热情','灵活'], preferences: ['提成激励'] },
-  { id: 'weather', name: '连续阴雨', type: '环境', persona: '外部不可控', goal: '—',
-    specs: '7天降雨50mm+', impact: '到店客流-20-30%', trend: '短期', lifecycle: '7-10天' },
-  { id: 'fresh_tea', name: '明前新茶', type: '商品', persona: '高毛利引流', goal: '带动关联购买',
-    specs: '龙井250g，毛利45%', impact: '关联购买率35%', trend: '上升', lifecycle: '2个月' },
-  { id: 'kpi_gmv', name: 'GMV锚点', type: 'KPI', persona: '总部考核', goal: '同比增长',
-    specs: '月度GMV同比+15%', impact: '决定评级奖金', trend: '压力上升', lifecycle: '月度' },
-  { id: 'region', name: '区域督导', type: '组织', persona: '盯排名', goal: '区域标杆',
-    age: 45, gender: '男', mbti: 'INTJ', bio: '管理20家门店', traits: ['严谨','考核导向'], preferences: ['排名驱动'] },
-];
-
-const REL = [
-  ['price_sensitive', 'competitor', '比价流失', 0],
-  ['loyal_vip', 'store_mgr', '私域唤醒', 0],
-  ['store_mgr', 'staff', '排班激励', 0],
-  ['staff', 'fresh_tea', '关联推荐', 0],
-  ['competitor', 'fresh_tea', '价格压制', 0],
-  ['weather', 'price_sensitive', '到店下降', 0],
-  ['supplier', 'store_mgr', '缺货协商', 0],
-  ['fresh_tea', 'kpi_gmv', '贡献增长', 0],
-  ['region', 'store_mgr', '巡检压任务', 0],
-  ['loyal_vip', 'fresh_tea', '尝鲜复购', 0],
-];
-
+// 加载当前场景包的 demoData（无 LLM Key 或快速体验时使用）。
+// 各场景示例数据在 scenarios/*.js 的 demoData 字段里定义。
 export function loadDemo() {
+  const demo = store.scenario.demoData;
+  if (!demo) { pushLog('当前场景无内置示例', 'err'); return; }
   pushLog('加载示例推演（非实时 LLM）', 'ac');
-  store.entities = POOL.map(e => ({ ...e }));
-  store.edges = REL.map(([s, t, r, round]) => ({ source: s, target: t, relation: r, _new: false, round, status: 'active', created_by: s, reason: '', effect: '' }));
+  store.entities = demo.entities.map(e => ({ ...e }));
+  store.edges = demo.edges.map(([s, t, r, round]) => ({ source: s, target: t, relation: r, _new: false, round, status: 'active', created_by: s, reason: '', effect: '' }));
   store.episodes = {};
   store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
   store.ui.b1 = 'success';
