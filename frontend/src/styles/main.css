@@ -35,7 +35,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
-#app { height: 100%; font-family: var(--font-mono); color: var(--ink); background: var(--canvas); -webkit-font-smoothing: antialiased; font-size: 14px; }
+#app { height: 100%; font-family: var(--font-mono); color: var(--ink); background: var(--canvas); -webkit-font-smoothing: antialiased; font-size: 15px; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface-soft); }
