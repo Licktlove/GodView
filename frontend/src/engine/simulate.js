@@ -3,13 +3,11 @@ import { callChat } from '../services/llm';
 import { computeImportance } from './importance';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 import { getScenario } from '../scenarios';
+import { typeColorFor } from './palette';
 
-export { computeImportance };
-
-const PALETTE = ['#2E90E6', '#ff3b30', '#ff9f0a', '#0fa336', '#0E62C4', '#607D8B', '#0066b1', '#6FC2FF', '#ff9f0a', '#0653b6', '#009688', '#CDDC39', '#1A7FE8', '#FF5722', '#03A9F4', '#8BC34A'];
+export { computeImportance, typeColorFor };
 
 function scn() { return store.scenario; }
-function typeColor(type) { return scn().typeColor[type] || PALETTE[0]; }
 function isPersonType(type) {
   const s = scn();
   const personTypes = s.personTypes || [];
@@ -20,7 +18,6 @@ function isPersonType(type) {
   if (kw.some(k => type.includes(k))) return true;
   return false;
 }
-export function typeColorFor(type) { return typeColor(type); }
 export { isPersonType };
 
 function fill(t, ...args) { return t.replace(/\{(\w+)\}/g, (m, k) => (k in args[0] ? args[0][k] : m)); }
@@ -72,7 +69,27 @@ export async function genEntities() {
           store.edges.push({ source: f.id, target: t.id, relation: r.relation, _new: false, round: 0, status: 'active', created_by: f.id, reason: '', effect: '' });
       }
     });
-    pushLog(`LLM 抽取实体 ${store.entities.length} 个、关系 ${store.edges.length} 条`, 'ac');
+
+    // B1 孤儿实体兜底：LLM 可能漏抽部分关系，导致某些实体出生即孤立。
+    // 把没有任何边的实体自动挂到当前最枢纽（度数最高）的实体上，避免"外圈孤点"。
+    const deg = {};
+    store.edges.forEach(x => { deg[x.source] = (deg[x.source] || 0) + 1; deg[x.target] = (deg[x.target] || 0) + 1; });
+    const hooked = [];
+    store.entities.forEach(e => {
+      if (deg[e.id]) return;
+      let hub = null, hubD = -1;
+      store.entities.forEach(o => {
+        if (o.id === e.id) return;
+        const d = deg[o.id] || 0;
+        if (d > hubD) { hubD = d; hub = o; }
+      });
+      if (hub) {
+        store.edges.push({ source: e.id, target: hub.id, relation: '关联', _new: false, round: 0, status: 'active', created_by: e.id, reason: '', effect: '' });
+        deg[e.id] = 1; deg[hub.id] = hubD + 1;
+        hooked.push(`${e.name} → ${hub.name}`);
+      }
+    });
+    pushLog(`LLM 抽取实体 ${store.entities.length} 个、关系 ${store.edges.length} 条` + (hooked.length ? `（孤儿挂接 ${hooked.length}）` : ''), 'ac');
     if (data.recommend) {
       const r = data.recommend;
       if (r.rounds) { store.rounds = Math.max(1, Math.min(200, r.rounds)); pushLog(`推荐轮数: ${store.rounds}（${r.reason || ''}）`, 'ac'); }
@@ -162,13 +179,24 @@ function weightedSample(ents, k, exclude = []) {
   return picked;
 }
 
-// 焦点选择：② 锁定角色必出场 + ⑦ 其余按枢纽加权补足
+// 焦点选择：② 锁定角色必出场 + B2 零度/低度实体保底（治本：让孤立实体主动建边）+ ⑦ 其余按枢纽加权补足
 function pickFocus() {
   const locked = store.entities.filter(e => store.lockedIds.includes(e.id));
   const lockedIds = locked.map(e => e.id);
   const quota = Math.min(store.perR, store.entities.length) - lockedIds.length;
-  const weighted = weightedSample(store.entities, Math.max(0, quota), lockedIds);
-  return [...locked, ...weighted];
+  if (quota <= 0) return locked.slice(0, Math.min(store.perR, store.entities.length));
+
+  // B2：预留约 40% 名额给"最不活跃"的实体（度数升序，孤立/低度优先）
+  const deg = degreeMap();
+  const pool = store.entities.filter(e => !lockedIds.includes(e.id));
+  const sorted = pool.slice().sort((a, b) => (deg[a.id] || 0) - (deg[b.id] || 0));
+  const reserve = Math.min(Math.max(1, Math.round(quota * 0.4)), sorted.length);
+  const lowDeg = sorted.slice(0, reserve);
+  const lowIds = lowDeg.map(e => e.id);
+
+  // ⑦ 剩余名额按枢纽加权（排除已选）
+  const rest = weightedSample(store.entities, Math.max(0, quota - reserve), [...lockedIds, ...lowIds]);
+  return [...locked, ...lowDeg, ...rest].slice(0, Math.min(store.perR, store.entities.length));
 }
 
 // 构造「世界局势」摘要：所有 agent + 近期若干轮的事件流（让涌现有全局上下文）
@@ -221,6 +249,12 @@ async function runRound(round, total) {
     (data.new_entities || []).forEach(ne => {
       if (ne.id && !store.entities.some(x => x.id === ne.id)) {
         store.entities.push({ id: ne.id, name: ne.name, type: ne.type || '组织', persona: ne.persona, goal: ne.goal, _new: true, _bornRound: round });
+        // B3 涌现即建边：新 agent 出生立刻与催生它的父体建立关系，杜绝孤立
+        const pid = nameToId(e.name);
+        if (pid && pid !== ne.id && !store.edges.some(x => (x.source === pid && x.target === ne.id) || (x.source === ne.id && x.target === pid))) {
+          store.edges.push({ source: pid, target: ne.id, relation: '催生', _new: true, round, status: 'active', created_by: e.id, reason: '', effect: '' });
+          pushActivity(round, ne.name, `${e.name} 催生 ${ne.name}，并建立「催生」关系`, 'rel');
+        }
         pushLog(`轮${round} 涌现新 agent：${ne.name}`, 'ok');
         pushActivity(round, ne.name, `涌现新 agent：${ne.name}（${ne.type || '组织'}）加入世界`, 'born');
       }
