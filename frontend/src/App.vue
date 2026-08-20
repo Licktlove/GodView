@@ -33,18 +33,30 @@
               <div class="stat-card"><span class="stat-value">{{ store.growth.length - 1 }}</span><span class="stat-label">轮次</span></div>
             </div>
 
+            <!-- Phase: WHAT IF -->
+            <div class="phase-title"><span class="phase-en">WHAT IF</span><span class="phase-cn">构建世界</span></div>
             <!-- Step 1 -->
             <div class="step-card" :class="{ active: store.ui.b1 === 'processing', completed: store.ui.b1 === 'success' }">
-              <div class="card-header">
-                <div class="step-info" @click="toggleStep(1)"><span class="step-num">01</span><span class="step-title">构建世界</span><span class="step-collapse-icon">{{ collapsedSteps.has(1) ? "▸" : "▾" }}</span></div>
-                <span class="badge" :class="store.ui.b1" @click="toggleStep(1)">{{ badgeText(store.ui.b1) }}</span>
+              <div class="card-header" @click="toggleStep(1)">
+                <span class="step-collapse-icon">{{ collapsedSteps.has(1) ? "▸" : "▾" }}</span>
+                <span class="badge" :class="store.ui.b1" @click.stop="toggleStep(1)">{{ badgeText(store.ui.b1) }}</span>
               </div>
               <div v-show="!collapsedSteps.has(1)">
-                <p class="api-note">POST /api/chat → LLM 生成实体 + 自动推荐参数</p>
-                <p class="description">输入经营场景，LLM 自动实例化实体并推荐推演参数。</p>
-                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" placeholder="例：社区团购低价截流，本店客流下滑，如何应对？"></textarea></div>
+                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="'例：' + (store.scenario.seedExamples?.[0] || '描述你的场景…')"></textarea></div>
                 <div class="preset-row">
-                  <button v-for="p in presets" :key="p" class="preset-btn" @click="store.seed = p">{{ p.slice(0,10) }}…</button>
+                  <button v-for="p in store.scenario.seedExamples" :key="p" class="preset-btn" @click="store.seed = p">{{ p.slice(0,10) }}…</button>
+                </div>
+                <div class="assumption-box">
+                  <div class="assumption-label">假设事件 <span class="assumption-hint">世界设定的前提，会注入抽取与整个推演</span></div>
+                  <div class="assumption-input-row">
+                    <input class="assumption-input" v-model="assumptionInput" placeholder="如：竞品新店开业大促 / 阴雨一周" @keyup.enter="addAssumption" />
+                    <button class="btn-secondary" @click="addAssumption" :disabled="!assumptionInput.trim()">添加</button>
+                  </div>
+                  <div class="assumption-tags" v-if="store.assumptions.length">
+                    <span class="assumption-tag" v-for="a in store.assumptions" :key="a.id">
+                      {{ a.text }}<span class="assumption-del" @click="removeAssumption(a.id)">×</span>
+                    </span>
+                  </div>
                 </div>
                 <div class="slider-row"><span class="lab">实体数量</span><input type="range" min="4" max="999" v-model.number="store.entN" /><span class="val">{{ store.entN }}</span></div>
                 <button class="start-engine-btn" @click="genEntities" :disabled="store.ui.genRunning">
@@ -59,33 +71,47 @@
               </div>
             </div>
 
+            <!-- Phase: SIMULATE -->
+            <div class="phase-title"><span class="phase-en">SIMULATE</span><span class="phase-cn">自生长推演</span></div>
             <!-- Step 2 -->
             <div class="step-card" :class="{ active: store.ui.b2 === 'processing', completed: store.ui.b2 === 'success' }">
-              <div class="card-header">
-                <div class="step-info" @click="toggleStep(2)"><span class="step-num">02</span><span class="step-title">自生长推演</span><span class="step-collapse-icon">{{ collapsedSteps.has(2) ? "▸" : "▾" }}</span></div>
-                <span class="badge" :class="store.ui.b2" @click="toggleStep(2)">{{ badgeText(store.ui.b2) }}</span>
+              <div class="card-header" @click="toggleStep(2)">
+                <span class="step-collapse-icon">{{ collapsedSteps.has(2) ? "▸" : "▾" }}</span>
+                <span class="badge" :class="store.ui.b2" @click.stop="toggleStep(2)">{{ badgeText(store.ui.b2) }}</span>
               </div>
               <div v-show="!collapsedSteps.has(2)">
-                <p class="api-note">POST /api/chat → 多轮 LLM 交互 + 时序记忆 + 剧集记录</p>
-                <p class="description">每轮选取焦点实体，基于人格行动，催生新关系/新实体。</p>
                 <div class="slider-row"><span class="lab">推演轮数</span><input type="range" min="1" max="200" v-model.number="store.rounds" /><span class="val">{{ store.rounds }}</span></div>
                 <div class="slider-row"><span class="lab">每轮焦点数</span><input type="range" min="1" max="200" v-model.number="store.perR" /><span class="val">{{ store.perR }}</span></div>
                 <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
                   <span>{{ store.ui.simRunning ? '推演中…' : '启动推演' }}</span><span>→</span>
                 </button>
+                <div class="activity-feed" v-if="store.activityFeed.length || store.ui.simRunning">
+                  <div class="activity-header">
+                    <span>世界动态 · 实时</span>
+                    <span class="activity-progress" v-if="store.ui.simRunning || store.simRound > 0">R{{ store.simRound || 0 }}/{{ store.rounds }}</span>
+                  </div>
+                  <div class="activity-list" ref="activityRef">
+                    <div v-if="!store.activityFeed.length" class="activity-empty">推演启动后，每个 agent 的动作会实时出现在这里…</div>
+                    <div v-for="(a, i) in store.activityFeed" :key="i" class="activity-item" :class="a.kind">
+                      <span class="activity-round">R{{ a.round }}</span>
+                      <span class="activity-dot"></span>
+                      <span class="activity-text">{{ a.text }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
+            <!-- Phase: OBSERVE -->
+            <div class="phase-title"><span class="phase-en">OBSERVE</span><span class="phase-cn">决策报告</span></div>
             <!-- Step 3 -->
             <div class="step-card" :class="{ active: store.ui.b3 === 'processing', completed: store.ui.b3 === 'success' }">
-              <div class="card-header">
-                <div class="step-info" @click="toggleStep(3)"><span class="step-num">03</span><span class="step-title">决策报告</span><span class="step-collapse-icon">{{ collapsedSteps.has(3) ? "▸" : "▾" }}</span></div>
-                <span class="badge" :class="store.ui.b3" @click="toggleStep(3)">{{ badgeText(store.ui.b3) }}</span>
+              <div class="card-header" @click="toggleStep(3)">
+                <span class="step-collapse-icon">{{ collapsedSteps.has(3) ? "▸" : "▾" }}</span>
+                <span class="badge" :class="store.ui.b3" @click.stop="toggleStep(3)">{{ badgeText(store.ui.b3) }}</span>
               </div>
               <div v-show="!collapsedSteps.has(3)">
-                <p class="api-note">POST /api/chat → ReACT 多章节流式生成</p>
-                <p class="description">先规划大纲，再逐章节生成，每章基于已有内容迭代。</p>
-                <button class="start-engine-btn" @click="genReport" :disabled="store.ui.reportRunning || !store.entities.length">
+                <button class="start-engine-btn" @click="genReportStream" :disabled="store.ui.reportRunning || !store.entities.length">
                   <span>{{ store.ui.reportRunning ? '生成中…' : '生成报告' }}</span><span>→</span>
                 </button>
               </div>
@@ -111,10 +137,26 @@
 
             </div>
 
+            <!-- Interview 元层：追问全局分析师 -->
+            <div class="report-card analysis-card" v-if="store.report || store.analysis.messages.length">
+              <h3>追问全局分析师 <span class="analysis-hint">问整体局势，而非单个角色</span></h3>
+              <div class="analysis-messages" ref="analysisRef">
+                <div v-if="!store.analysis.messages.length" class="analysis-empty">报告已就绪。问它整体局势，如「为什么客流掉了？」「竞品降价会传导到哪里？」</div>
+                <div v-for="(m, i) in store.analysis.messages" :key="i" class="analysis-msg" :class="m.role">
+                  <span class="analysis-role">{{ m.role === 'user' ? '我' : '分析师' }}</span>
+                  <span class="analysis-text">{{ m.content }}</span>
+                </div>
+                <div v-if="store.analysis.running" class="analysis-msg assistant"><span class="analysis-role">分析师</span><span class="analysis-text">分析中…</span></div>
+              </div>
+              <div class="analysis-input-row">
+                <input class="chat-input" v-model="analysisInput" placeholder="追问整体局势…" @keyup.enter="sendAnalysis" :disabled="store.analysis.running" />
+                <button class="btn-secondary" @click="sendAnalysis" :disabled="store.analysis.running || !analysisInput.trim()">追问</button>
+              </div>
+            </div>
+
                         <!-- Feature 3: Causal Chains -->
             <div class="report-card" v-if="store.causalChains.length">
               <h3>因果链分析</h3>
-              <p class="description" style="margin-bottom:10px">点击因果链在图谱中高亮路径</p>
               <div v-for="(chain, i) in store.causalChains" :key="i" class="causal-chain-item" @click="highlightCausalChain(i)">
                 <div class="causal-chain-path">
                   <span v-for="(id, j) in chain.path" :key="j" class="chain-node">
@@ -170,15 +212,15 @@
                 <span class="analytics-val">{{ store.bridgeNodes.map(id => entityName(id)).join('、') }}</span>
               </div>
             </div>
-<!-- Step 4: Deep Interaction -->
+<!-- Phase: INTERVIEW（常驻） -->
+            <div class="phase-title phase-title--muted" v-if="store.ui.b2 === 'success'"><span class="phase-en">INTERVIEW</span><span class="phase-cn">随时问节点</span></div>
+            <!-- Step 4: Interview 节点（与任意 agent 对话） -->
             <div class="step-card" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
-              <div class="card-header">
-                <div class="step-info" @click="toggleStep(4)"><span class="step-num">04</span><span class="step-title">深度互动</span><span class="step-collapse-icon">{{ collapsedSteps.has(4) ? "▸" : "▾" }}</span></div>
-                <span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'" @click="toggleStep(4)">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span>
+              <div class="card-header" @click="toggleStep(4)">
+                <span class="step-collapse-icon">{{ collapsedSteps.has(4) ? "▸" : "▾" }}</span>
+                <span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'" @click.stop="toggleStep(4)">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span>
               </div>
               <div v-show="!collapsedSteps.has(4)">
-                <p class="api-note">POST /api/chat → 角色扮演 LLM 对话</p>
-                <p class="description">与推演世界中的任意实体对话。回答基于实体画像与推演中的行为记忆。</p>
                 <div v-if="!store.chat.target" class="entity-chat-select">
                   <span class="tag-label">选择对话实体</span>
                   <div class="tags-list">
@@ -209,9 +251,9 @@
 
             <!-- Entity tags -->
             <div class="tags-container" v-if="store.entities.length">
-              <span class="tag-label">GENERATED ENTITIES ({{ store.entities.length }})</span>
+              <span class="tag-label">GENERATED ENTITIES ({{ store.entities.length }}) <span class="tag-hint" v-if="store.lockedIds.length">已锁定 {{ store.lockedIds.length }} 个主角常驻</span></span>
               <div class="tags-list">
-                <span class="entity-tag" v-for="e in store.entities" :key="e.id" @click="showNode(e)">{{ e.name }}<span class="t">{{ e.type }}</span></span>
+                <span class="entity-tag" :class="{ locked: store.lockedIds.includes(e.id) }" v-for="e in store.entities" :key="e.id" @click="showNode(e)">{{ e.name }}<span class="t">{{ e.type }}</span><span class="lock-toggle" :class="{ on: store.lockedIds.includes(e.id) }" @click.stop="toggleLock(e.id)" :title="store.lockedIds.includes(e.id) ? '取消锁定' : '锁定为常驻主角'">{{ store.lockedIds.includes(e.id) ? '🔒' : '◌' }}</span></span>
               </div>
             </div>
 
@@ -250,10 +292,10 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
-import { store, pushLog, resetWorld } from './store/sim';
-import { genEntities, runSim, genReport, enrichProfiles, interactWith, startChat, endChat } from './engine/simulate';
+import { store, pushLog, resetWorld, toggleLock } from './store/sim';
+import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt } from './engine/simulate';
 import { loadDemo } from './engine/synthetic';
-import { fetchHealth } from './services/llm';
+import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
@@ -264,15 +306,12 @@ const history = reactive([]);
 const termRef = ref(null);
 const chatRef = ref(null);
 const chatInput = ref('');
+const assumptionInput = ref('');
+const analysisInput = ref('');
+const analysisRef = ref(null);
+const activityRef = ref(null);
 const collapsedSections = ref(new Set());
 const collapsedSteps = ref(new Set());
-
-const presets = [
-  '社区团购低价截流，本店客流下滑，如何应对？',
-  '连续阴雨一周，生鲜损耗加剧，怎样稳毛利？',
-  '街角竞品开业大促，会员流失风险高',
-  '总部下达GMV同比增长20%的硬指标',
-];
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 const rightStyle = computed(() => viewMode.value === 'workbench' ? { width: '100%', opacity: 1 } : viewMode.value === 'graph' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
@@ -288,7 +327,81 @@ const statusClass = computed(() => (store.ui.genRunning || store.ui.simRunning |
 const statusText = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'Processing' : 'Ready');
 const chatTargetName = computed(() => store.entities.find(e => e.id === store.chat.target)?.name || '');
 
+function graphSummary() {
+  return '实体：' + store.entities.map(e => e.name + '(' + e.type + ')').join('、') +
+    '\n关系：' + store.edges.slice(0, 80).map(x => {
+      const s = store.entities.find(y => y.id === x.source); const t = store.entities.find(y => y.id === x.target);
+      return (s ? s.name : x.source) + '→' + (t ? t.name : x.target) + ':' + (x.relation || '') + (x.round ? '(R' + x.round + ')' : '');
+    }).join('；');
+}
+
+// 真流式报告：大纲一次性取，章节逐个用 SSE 逐 token 渲染
+async function genReportStream() {
+  if (!store.entities.length) { pushLog('请先推演', 'err'); return; }
+  store.ui.reportRunning = true;
+  store.ui.b3 = 'processing';
+  store.reportOutline = null; store.reportSections = {}; store.report = null;
+  store.causalChains = []; store.decisions = [];
+  const summary = graphSummary();
+  const evidence = retrievalText();
+  try {
+    pushLog('报告规划中…（先检索图谱证据）', 'ac');
+    const outline = await genOutline(evidence);
+    store.reportOutline = outline;
+    pushLog(`报告大纲：${outline.sections?.length || 0} 章节`, 'ac');
+    const sections = outline.sections || [];
+    const doneContents = [];
+    for (let i = 0; i < sections.length; i++) {
+      store.reportSections[i] = { content: '', status: 'generating' };
+      pushLog(`流式生成章节 ${i + 1}/${sections.length}：${sections[i].title}…`, 'ac');
+      const sectionSummary = summary + '\n\n' + evidence + '\n\n已有章节：' + doneContents.map(s => s.slice(0, 100)).join('；');
+      const content = await streamChat(
+        [{ role: 'system', content: '你是' + store.scenario.domain + '决策分析师。撰写指定章节，Markdown，80-150字。' },
+         { role: 'user', content: `报告标题：${outline.title || ''}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节内容。` }],
+        { temperature: 0.6, max_tokens: 1500, onToken: (delta, acc) => { store.reportSections[i] = { content: acc, status: 'generating' }; } }
+      );
+      doneContents.push(content || '（生成失败）');
+      store.reportSections[i] = { content: content || '（生成失败）', status: 'done' };
+      pushLog(`✓ 章节 ${i + 1} 完成`, 'ok');
+    }
+    store.causalChains = await extractCausalChains(summary);
+    store.decisions = await extractDecisions(summary);
+    const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
+    store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告（流式）', fullContent: allContent };
+    store.ui.b3 = 'success'; store.ui.b4 = 'pending';
+    pushLog('✓ 决策报告已生成（流式）', 'ok');
+  } catch (err) {
+    store.ui.b3 = 'pending'; pushLog('报告生成失败：' + err.message, 'err');
+  } finally {
+    store.ui.reportRunning = false;
+  }
+}
+
+async function extractCausalChains(summary) {
+  try {
+    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '因果分析专家。输出JSON。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n提取3-5条因果链。输出JSON：{"chains":[{"path":["实体名1","实体名2"],"relations":["关系1"],"effect":"最终影响","confidence":0.0-1.0}]}' }], json: true, temperature: 0.4, max_tokens: 1000 });
+    return (data.chains || []).map(c => ({ ...c, path: (c.path || []).map(name => { const e = store.entities.find(x => x.name === name); return e ? e.id : null; }).filter(Boolean) }));
+  } catch (e) { pushLog('因果链提取失败：' + e.message, 'err'); return []; }
+}
+async function extractDecisions(summary) {
+  try {
+    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0}]}' }], json: true, temperature: 0.5, max_tokens: 1000 });
+    return (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
+  } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
+}
+
 function badgeText(s) { return s === 'processing' ? 'Running' : s === 'success' ? 'Done' : 'Pending'; }
+
+// WHAT IF：假设事件管理
+function addAssumption() {
+  const t = assumptionInput.value.trim();
+  if (!t) return;
+  store.assumptions.push({ id: 'asm' + Date.now(), text: t });
+  assumptionInput.value = '';
+}
+function removeAssumption(id) {
+  store.assumptions = store.assumptions.filter(a => a.id !== id);
+}
 
 function toggleStep(num) {
   const s = new Set(collapsedSteps.value);
@@ -328,9 +441,68 @@ async function sendChat() {
   if (!chatInput.value.trim() || store.chat.running) return;
   const msg = chatInput.value.trim();
   chatInput.value = '';
-  await interactWith(store.chat.target, msg);
+  await interactWithStream(store.chat.target, msg);
   await nextTick();
   if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight;
+}
+
+// Interview 真流式：以 agent 身份逐 token 回复
+async function interactWithStream(entityId, userMessage) {
+  const e = store.entities.find(x => x.id === entityId);
+  if (!e) { pushLog('未找到实体', 'err'); return; }
+  store.chat.running = true;
+  store.chat.target = entityId;
+  store.chat.messages.push({ role: 'user', content: userMessage });
+  const eps = (store.episodes[entityId] || []).map(ep => '[R' + ep.round + '] ' + ep.text).join('\n');
+  const isPerson = !store.scenario.objectTypes?.includes(e.type) && (store.scenario.personKeywords || []).some(k => e.type.includes(k));
+  const sysContent = isPerson
+    ? `你现在是「${e.name}」，一个${e.type} agent，处于${store.scenario.domain}推演世界中行动。\n人格：${e.persona || '—'}\n目标：${e.goal || '—'}${e.bio ? '\n背景：' + e.bio : ''}${e.traits ? '\n特征：' + e.traits.join('、') : ''}\n\n经历：\n${eps}\n\n请以该角色身份回答，保持角色一致。`
+    : `你现在是「${e.name}」，一个${e.type}实体，处于${store.scenario.domain}世界。\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}${e.specs ? '\n规格：' + e.specs : ''}\n\n变化：\n${eps}\n\n请以该实体视角回答。`;
+  try {
+    // 先 push 一个空的 assistant 占位，逐 token 填充
+    store.chat.messages.push({ role: 'assistant', content: '' });
+    const acc = await streamChat([{ role: 'system', content: sysContent }, ...store.chat.messages.slice(-9).map(m => ({ role: m.role, content: m.content }))], {
+      temperature: 0.8, max_tokens: 800,
+      onToken: (delta, full) => { store.chat.messages[store.chat.messages.length - 1].content = full; },
+    });
+    if (!acc) store.chat.messages[store.chat.messages.length - 1].content = '（无回复）';
+    pushLog('Interview「' + e.name + '」完成', 'ac');
+  } catch (err) {
+    store.chat.messages.push({ role: 'assistant', content: '交互失败：' + err.message });
+    pushLog('交互失败：' + err.message, 'err');
+  } finally {
+    store.chat.running = false;
+  }
+}
+
+// Interview 元层：追问全局分析师（真流式）
+async function sendAnalysis() {
+  if (!analysisInput.value.trim() || store.analysis.running) return;
+  const msg = analysisInput.value.trim();
+  analysisInput.value = '';
+  await interactWithAnalyst(msg);
+  await nextTick();
+  if (analysisRef.value) analysisRef.value.scrollTop = analysisRef.value.scrollHeight;
+}
+
+async function interactWithAnalyst(userMessage) {
+  store.analysis.running = true;
+  store.analysis.messages.push({ role: 'user', content: userMessage });
+  const sysContent = analystSystemPrompt();
+  try {
+    store.analysis.messages.push({ role: 'assistant', content: '' });
+    const acc = await streamChat([{ role: 'system', content: sysContent }, ...store.analysis.messages.slice(-9).map(m => ({ role: m.role, content: m.content }))], {
+      temperature: 0.6, max_tokens: 900,
+      onToken: (delta, full) => { store.analysis.messages[store.analysis.messages.length - 1].content = full; },
+    });
+    if (!acc) store.analysis.messages[store.analysis.messages.length - 1].content = '（无回复）';
+    pushLog('分析师回答完成', 'ac');
+  } catch (err) {
+    store.analysis.messages.push({ role: 'assistant', content: '分析失败：' + err.message });
+    pushLog('分析失败：' + err.message, 'err');
+  } finally {
+    store.analysis.running = false;
+  }
 }
 
 async function refreshHealth() { try { Object.assign(health, await fetchHealth()); } catch (e) { pushLog('后端未连接：' + e.message, 'err'); } }
@@ -358,5 +530,7 @@ async function loadExperiment(id) {
 
 watch(() => store.logs.length, async () => { await nextTick(); if (termRef.value) termRef.value.scrollTop = termRef.value.scrollHeight; });
 watch(() => store.chat.messages.length, async () => { await nextTick(); if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight; });
+watch(() => store.analysis.messages.length, async () => { await nextTick(); if (analysisRef.value) analysisRef.value.scrollTop = analysisRef.value.scrollHeight; });
+watch(() => store.activityFeed.length, async () => { await nextTick(); if (activityRef.value) activityRef.value.scrollTop = activityRef.value.scrollHeight; });
 onMounted(() => { refreshHealth(); refreshHistory(); });
 </script>
