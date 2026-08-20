@@ -1,7 +1,12 @@
 <template>
   <div class="app">
-    <header class="app-header">
-      <div class="header-left"><div class="brand">GOD-VIEW<span class="dot"> · </span>SANDBOX</div></div>
+    <header class="app-header" v-if="viewMode!=='home'">
+      <div class="header-left">
+        <div class="brand-block" @click="viewMode='home'">
+          <div class="brand-title">Dmall Future Market</div>
+          <div class="brand-sub">让每一个经营决策，都先在未来发生一次。</div>
+        </div>
+      </div>
       <div class="header-center">
         <div class="view-switcher">
           <button v-for="m in ['graph','split','workbench']" :key="m" class="switch-btn" :class="{active: viewMode===m}" @click="viewMode=m">
@@ -9,7 +14,7 @@
           </button>
         </div>
       </div>
-      <div class="header-right">
+      <div class="header-right" v-if="viewMode!=='home'">
         <span class="status-indicator" :class="statusClass"><span class="dot"></span>{{ statusText }}</span>
         <div class="step-divider"></div>
         <div class="workflow-step">
@@ -20,6 +25,8 @@
     </header>
 
     <main class="content-area">
+      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" />
+      <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
         <GraphPanel @chat="onChatFromGraph" />
       </div>
@@ -286,6 +293,7 @@
           </div>
         </div>
       </div>
+      </template>
     </main>
   </div>
 </template>
@@ -297,10 +305,11 @@ import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, 
 import { loadDemo } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
+import HomeView from './components/HomeView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
 
-const viewMode = ref('split');
+const viewMode = ref('home');
 const health = reactive({ ok: false, model: '', keyConfigured: false, baseURL: '' });
 const history = reactive([]);
 const termRef = ref(null);

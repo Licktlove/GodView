@@ -38,7 +38,7 @@
       <div v-if="selectedNode" class="detail-panel">
         <div class="detail-panel-header">
           <div style="display:flex;align-items:center;gap:8px">
-            <span class="detail-type-badge" :style="{ background: typeColor(selectedNode.type) }">{{ selectedNode.type }}</span>
+            <span class="detail-type-badge" :style="{ background: typeColorFor(selectedNode.type) }">{{ selectedNode.type }}</span>
             <span class="detail-title">{{ selectedNode.name }}</span>
           </div>
           <button class="detail-close" @click="selectedNode = null">×</button>
@@ -115,7 +115,6 @@ import { detectCommunities, detectBridgeNodes, detectConflicts, shortestPath } f
 
 defineEmits(['chat']);
 
-const PALETTE = ['#2E90E6','#ff3b30','#ff9f0a','#0fa336','#0E62C4','#607D8B','#0066b1','#6FC2FF','#ff9f0a','#0653b6','#009688','#CDDC39','#1A7FE8','#FF5722','#03A9F4','#8BC34A'];
 const NODE_R = 8; // 固定节点半径，不再按重要性缩放
 
 const containerRef = ref(null);
@@ -152,7 +151,6 @@ let localConflicts = [];
 let localCommunities = [];
 let localBridges = [];
 
-function typeColor(type) { return typeColorFor(type) || PALETTE[0]; }
 function idOf(x) { return (x && typeof x === 'object') ? x.id : x; }
 function nameOf(id) { return store.entities.find(e => e.id === id)?.name || id; }
 
@@ -161,7 +159,7 @@ function computeTypes() {
   const map = {};
   store.entities.forEach(e => {
     const t = e.type || '其他';
-    if (!map[t]) map[t] = { name: t, count: 0, color: typeColor(t) };
+    if (!map[t]) map[t] = { name: t, count: 0, color: typeColorFor(t) };
     map[t].count++;
   });
   entityTypes.value = Object.values(map);
@@ -215,7 +213,7 @@ function applyEmphasis() {
     .attr('stroke', l => {
       if (conflictEdgeSet.has(l.__idx)) return '#ff3b30';
       if (empty) return 'rgba(15,0,0,0.12)';
-      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? 'var(--ink)' : 'rgba(15,0,0,0.12)';
+      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? '#F43F5E' : 'rgba(15,0,0,0.12)';
     })
     .attr('stroke-dasharray', l => conflictEdgeSet.has(l.__idx) ? '5 3' : null);
 
@@ -308,6 +306,14 @@ function renderGraph() {
   svgSel.selectAll('*').remove();
   svgSel.on('click', null);
 
+  // 背景：点阵星空。作为固定底板置于 gSel 之外，不随 zoom 变换
+  const bgDefs = svgSel.append('defs');
+  const bgPattern = bgDefs.append('pattern')
+    .attr('id', 'gv-dots').attr('patternUnits', 'userSpaceOnUse')
+    .attr('width', 22).attr('height', 22);
+  bgPattern.append('circle').attr('cx', 3).attr('cy', 3).attr('r', 1.3).attr('fill', 'rgba(14,165,233,0.16)');
+  svgSel.append('rect').attr('width', width).attr('height', height).attr('fill', 'url(#gv-dots)');
+
   const imp = computeImportance(store.entities, store.edges);
 
   let nodes = store.entities.map(e => ({
@@ -385,21 +391,21 @@ function renderGraph() {
         if (s === d.id || t === d.id) { connectedEdgeIdx.add(i); connectedIds.add(s); connectedIds.add(t); }
       });
       node.selectAll('circle:not(.bridge-ring)')
-        .attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.12)
-        .attr('stroke-width', n => n.id === d.id ? 4 : (connectedIds.has(n.id) ? 2.5 : 1.5))
-        .attr('stroke', n => n.id === d.id ? 'var(--ink)' : (connectedIds.has(n.id) ? 'var(--ink)' : '#FFF'));
+        .attr('opacity', 1)
+        .attr('stroke-width', n => n.id === d.id ? 4 : (connectedIds.has(n.id) ? 2.5 : (n._new ? 3 : 1.5)))
+        .attr('stroke', n => n.id === d.id ? 'var(--ink)' : (connectedIds.has(n.id) ? 'var(--ink)' : (n._new ? '#FF4500' : '#FFF')));
       node.selectAll('text')
-        .attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.1)
+        .attr('opacity', 1)
         .attr('font-weight', n => n.id === d.id ? '700' : '400');
-      link.attr('opacity', (l, i) => connectedEdgeIdx.has(i) ? 1 : 0.05)
-        .attr('stroke-width', (l, i) => connectedEdgeIdx.has(i) ? 2.5 : 1)
+      link.attr('opacity', (l, i) => connectedEdgeIdx.has(i) ? 1 : (l._new ? 0.6 : 0.35))
+        .attr('stroke-width', (l, i) => connectedEdgeIdx.has(i) ? 2.75 : (l._new ? 1.5 : 1))
         .attr('stroke', (l, i) => {
           if (localConflicts.some(c => c.edge1Idx === l.__idx || c.edge2Idx === l.__idx)) return '#ff3b30';
-          return connectedEdgeIdx.has(i) ? 'var(--ink)' : '#D0D0D0';
+          return connectedEdgeIdx.has(i) ? '#F43F5E' : 'rgba(15,0,0,0.12)';
         });
       if (linkLabels) {
-        linkLabels.attr('opacity', (l, i) => connectedEdgeIdx.has(i) ? 1 : 0)
-          .attr('fill', (l, i) => connectedEdgeIdx.has(i) ? 'var(--ink)' : '#999')
+        linkLabels.attr('opacity', 1)
+          .attr('fill', (l, i) => connectedEdgeIdx.has(i) ? '#F43F5E' : '#646262')
           .attr('font-weight', (l, i) => connectedEdgeIdx.has(i) ? '700' : '400');
       }
     })
@@ -407,7 +413,7 @@ function renderGraph() {
 
   node.append('circle')
     .attr('r', NODE_R)
-    .attr('fill', d => typeColor(d.type))
+    .attr('fill', d => typeColorFor(d.type))
     .attr('stroke', d => d._new ? '#FF4500' : '#FFF')
     .attr('stroke-width', d => d._new ? 3 : 1.5);
 
