@@ -1,34 +1,52 @@
-# 🌐 门店上帝视角推演沙盘
+# GodView — 零售经营上帝视角推演引擎
 
-> LLM 驱动的知识图谱自生长推演引擎 — 让零售决策在沙盘中预演，在模拟后胜出。
+> LLM 驱动的多智能体图谱推演沙盘 — 输入一个零售假设，长出一个会演化、能解释、可访谈的世界。
 
-输入一个经营场景（"如果…会怎样"），LLM 自动生成零售实体 → 多轮自生长推演 → 生成决策报告，图谱逐轮演化、关系动态涌现。推演完成后还可与任意实体深度对话。
+GodView 把"零售决策推演"变成三步叙事：**WHAT IF（假设）→ SIMULATE（涌现）→ OBSERVE（洞察）**，外加常驻的 **INTERVIEW（访谈）**。图谱上的每个节点都是一个带人格的 agent，整个推演过程可见、可问、可追溯。
+
+## 三阶段 + 常驻访谈
+
+```
+WHAT IF           SIMULATE            OBSERVE
+构建世界           自生长推演           决策报告
+──────────────────────────────────────────────────────
+种子文本           多智能体并行涌现       ReACT 式报告
++ 假设事件  ──▶   + 实时活动流   ──▶   + 图谱检索证据
++ 参数推荐          + 枢纽加权出场        + 追问全局分析师
+                   + 核心角色锁定
+                   + 稳态早停
+                        │
+              INTERVIEW（常驻）── 点任意节点，以它的 persona 对话
+```
 
 ## ✨ 核心特性
 
 | 特性 | 说明 |
 |------|------|
-| **LLM 生成实体** | 0-999 个实体，类型动态扩展（基础 9 类 + LLM 自定义） |
-| **自生长推演** | 0-200 轮，每轮焦点实体基于人格行动，催生新关系/新实体 |
-| **D3 知识图谱** | 力导向布局、zoom/pan/拖拽、悬停高亮（智驾蓝）、节点详情、图例收缩 |
-| **ReACT 多章节报告** | 先规划大纲 → 逐章节流式生成 → 可折叠展示 |
-| **实体画像丰富** | 人物：age/MBTI/bio/traits；物体：specs/impact/trend/lifecycle |
-| **交互记忆 (Episode)** | 每轮交互的行为效应存为实体记忆，供深度互动使用 |
-| **时序图谱** | 关系标记诞生轮次与状态 (active/expired) |
-| **深度互动** | 推演后与任意实体角色扮演对话，回答基于人格 + 行为记忆 |
-| **自动推荐参数** | LLM 根据场景推荐推演轮数和焦点数，预填滑块 |
+| **多智能体社会涌现** | 节点即 agent：带 persona 并行反应、受世界局势驱动、可催生新 agent，宏观结构自下而上涌现 |
+| **LLM 直抽图谱** | 种子文本 → 大模型直接抽取实体 + 初始关系（轻量替代 Zep，零外部图数据库依赖） |
+| **WHAT IF 假设事件** | 结构化前提（如"竞品新店开业大促"）注入抽取与整个推演，让假设名副其实 |
+| **实时活动流** | 每轮每个 agent 的动作滚动可见（新关系/影响/涌现），轮次进度实时显示 |
+| **枢纽加权出场** | 焦点按图谱度数加权抽取，店长/头部供应商等关键角色自动成为"主角" |
+| **核心角色锁定** | 锁定任意实体为常驻焦点，每轮必出场，故事线不划水 |
+| **稳态早停** | 连续多轮无新关系即收敛，"世界在第 X 轮达到均衡"，省 token 且可写进报告 |
+| **ReACT 式报告** | 动笔前先检索图谱证据（影响力中心/高频关系/演化趋势/冲突），大纲 + 章节 SSE 真流式 |
+| **追问全局分析师** | 报告后问"为什么客流掉了"这类全局问题，由带图谱上下文的分析师流式作答 |
+| **Interview 节点** | 与任意图谱节点以 persona + 推演行为记忆对话（角色扮演） |
+| **场景包制** | 领域知识外置为配置（零售/供应链已内置），不同场景 = 不同输入，推理引擎恒定 |
+| **D3 知识图谱** | 力导向布局、搜索、路径高亮、悬停详情、图例；浅蓝白主题 |
 | **实验持久化** | 推演快照保存为 JSON，支持回看对比 |
 
 ## 🏗️ 技术栈
 
 ```
 前端: Vue 3 + Vite + D3.js（力导向图谱）
-后端: Node.js + Express（LLM 代理 + 实验持久化）
-LLM:  任意 OpenAI 兼容 API（DeepSeek / Moonshot / OpenAI 等）
+后端: Node.js + Express（LLM 代理 + SSE + 实验持久化）
+LLM:  任意 OpenAI 兼容 API（默认阿里百炼 dashscope，qwen3.7-plus）
 ```
 
 - 后端代理 LLM 调用 → **根治 CORS + 密钥不暴露到前端**
-- 前端 D3 替代 ECharts → bundle 仅 91KB (gzip)
+- 真流式：后端 `/api/chat/stream` SSE 透传，前端逐 token 渲染
 - 单文件实验持久化 → 无需数据库
 
 ## 🚀 快速开始
@@ -37,7 +55,7 @@ LLM:  任意 OpenAI 兼容 API（DeepSeek / Moonshot / OpenAI 等）
 
 | 工具 | 版本 |
 |------|------|
-| Node.js | **18+**（推荐 24.x） |
+| Node.js | **18+**（推荐 22.x） |
 
 ### 1. 克隆仓库
 
@@ -58,19 +76,17 @@ npm run install:all
 cp .env.example backend/.env
 ```
 
-编辑 `backend/.env`，填入你的 API 信息：
+编辑 `backend/.env`，填入你的 API 信息（默认示例为阿里百炼）：
 
 ```env
-LLM_BASE_URL=https://api.moonshot.cn/v1
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_API_KEY=sk-your-key-here
-LLM_MODEL=moonshot-v1-32k
+LLM_MODEL=qwen3.7-plus
 
-PORT=3001
+PORT=3100
 ```
 
-> 支持任意 OpenAI 兼容接口。推荐使用 Moonshot (Kimi) 或 DeepSeek，性价比高。
-> 
-> ⚠️ 推理模型（如 kimi-k2.6）仅支持 temperature=1，后端会自动适配。
+> 支持任意 OpenAI 兼容接口（DeepSeek / Moonshot / OpenAI 等）。推理模型（如 qwen3.7-plus）会在首 token 前有数秒思考静默，属正常现象；追求响应速度可换 `qwen-plus` 等非推理模型。
 
 ### 4. 启动
 
@@ -81,8 +97,10 @@ npm run dev
 ```
 
 - 前端：http://localhost:5173
-- 后端 API：http://localhost:3001
+- 后端 API：http://localhost:3100
 - Vite 自动将 `/api/*` 代理到后端
+
+> 后端固定走 **3100** 端口（3001 常被其他项目占用，已迁移），`backend/.env` 的 `PORT` 与 `frontend/vite.config.js` 的代理目标需保持一致。
 
 **生产模式：**
 
@@ -91,52 +109,63 @@ npm run build
 npm start
 ```
 
-访问 http://localhost:3001（前端由后端同源托管）
-
 ## 📖 使用流程
 
-```
-输入场景 → 生成实体 → [画像丰富] → 启动推演 → 生成报告 → 深度互动
-   │           │          │           │          │          │
-   │     LLM 自动      LLM 二次     多轮 LLM    ReACT     与任意
-   │     生成 0-999    丰富每个     交互催生    多章节     实体
-   │     个实体        实体画像     新关系      流式生成   对话
-   │                                新实体
-   └─ 自动推荐 rounds / perR 参数
-```
-
-1. **构建世界**：输入经营场景，LLM 生成实体并推荐推演参数
-2. **自生长推演**：每轮焦点实体基于人格行动，图谱逐轮自生长
-3. **决策报告**：ReACT 多章节流式生成，含因果链/风险/置信度
-4. **深度互动**：与任意实体对话，回答基于推演中的行为记忆
+1. **WHAT IF · 构建世界**：输入经营场景 + 添加假设事件（可多条），LLM 抽取实体并推荐推演参数
+2. **SIMULATE · 自生长推演**：设定轮数/焦点数，启动后实时活动流展示每个 agent 的动作；可锁定主角、观察世界在何时达到稳态
+3. **OBSERVE · 决策报告**：生成报告（含图谱检索证据、因果链、决策建议），报告后可追问全局分析师
+4. **INTERVIEW · 随时问**：点任意节点，以它的 persona 对话
 
 > 💡 无 API Key 时可点"加载示例"查看完整演示效果（合成数据）。
 
 ## 📁 项目结构
 
 ```
-god-view-sandbox/
+GodView/
 ├── backend/
-│   ├── server.js          # Express 服务：LLM 代理 + 实验 CRUD
+│   ├── server.js          # Express：LLM 代理 + SSE 流式 + 实验 CRUD
 │   ├── .env               # 你的 API 密钥（不提交）
 │   └── data/experiments/  # 推演快照 JSON
 ├── frontend/
 │   ├── src/
-│   │   ├── App.vue              # 根组件：分屏布局 + 步骤向导
+│   │   ├── App.vue              # 根组件：三阶段工作台 + 图谱分屏
 │   │   ├── components/
 │   │   │   ├── GraphPanel.vue   # D3 力导向图谱
 │   │   │   └── GrowthPanel.vue  # D3 生长曲线
+│   │   ├── scenarios/           # 场景包（领域知识外置）
+│   │   │   ├── index.js         # 场景注册/选择
+│   │   │   ├── retail.js        # 零售 · 单店生态
+│   │   │   └── supplyChain.js   # 供应链 · 韧性
 │   │   ├── engine/
-│   │   │   ├── simulate.js      # 推演引擎（生成/推演/报告/互动）
-│   │   │   ├── importance.js    # 节点重要性（PageRank+中介+接近）
+│   │   │   ├── simulate.js      # 推演引擎（抽取/涌现/报告/访谈/检索）
+│   │   │   ├── analytics.js     # 冲突/群体/桥节点分析
+│   │   │   ├── importance.js    # 节点重要性
 │   │   │   └── synthetic.js     # 无 Key 兜底演示
 │   │   ├── store/sim.js         # 全局状态
-│   │   ├── services/llm.js      # API 调用
-│   │   └── styles/main.css      # 全局样式
-│   └── vite.config.js     # Vite 配置（含 /api 代理）
+│   │   ├── services/llm.js      # API 调用 + SSE 流式
+│   │   └── styles/main.css      # 全局样式（浅蓝白主题）
+│   └── vite.config.js     # Vite 配置（/api 代理 → 3100）
 ├── .env.example            # 环境变量模板
 ├── .gitignore
 └── package.json            # 顶层脚本（install:all / dev / build / start）
+```
+
+## 🧩 场景包
+
+场景包把"领域知识"从引擎里抽出来：换个场景只需新增一个 `scenarios/*.js`，推理过程不变。
+
+```js
+// scenarios/retail.js（示意）
+{
+  id: 'retail',
+  domain: '零售经营',
+  entityTypes: ['顾客分群', '门店', '竞品', '供应商', '员工', '平台', '商品', '环境', 'KPI', '组织'],
+  personTypes: [...],          // 人格实体白名单
+  objectTypes: [...],          // 非人格实体白名单
+  kpiSchema: ['客流', '客单价', '复购率', '坪效', '毛利'],
+  prompts: { sysGen: '...', sysRound: '...', ... },  // {domain} 占位符
+  demoData: { entities: [...], edges: [...] },       // 无 Key 兜底
+}
 ```
 
 ## ⚠️ 可信度红线
