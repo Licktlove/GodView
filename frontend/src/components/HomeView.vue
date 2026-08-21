@@ -1,6 +1,5 @@
 <template>
   <div class="home">
-    <!-- 背景层：渐变 + 网格 + 光晕 + 星点 -->
     <div class="bg">
       <div class="bg-grid"></div>
       <div class="glow glow-a"></div>
@@ -8,10 +7,9 @@
       <span class="star s1"></span><span class="star s2"></span><span class="star s3"></span><span class="star s4"></span><span class="star s5"></span>
     </div>
 
-    <!-- 顶部导航 -->
     <nav class="nav">
       <div class="nav-brand">
-        <span class="logo-mark"></span>
+        <img class="home-brand-logo" src="/brand-logo.svg" alt="公司 Logo" />
         <div class="nav-brand-text">
           <span class="nav-title">Dmall Future Market</span>
           <span class="nav-sub">让每一个经营决策，都先在未来发生一次。</span>
@@ -20,30 +18,34 @@
       <button class="nav-enter" @click="$emit('enter')">进入工作台 <span class="arr">→</span></button>
     </nav>
 
-    <!-- Hero -->
     <section class="hero">
-      <span class="hero-badge rise d0">RETAIL SIMULATION ENGINE · 零售经营推演引擎</span>
-      <h1 class="hero-title rise d1">Dmall <span class="gtext">Future</span> Market</h1>
-      <p class="hero-sub rise d2">让每一个经营决策，都先在未来发生一次。</p>
-      <p class="hero-desc rise d3">
-        把你的门店、供应链与顾客，抽象成会自主行动的数字实体；
-        在多智能体知识图谱上预演决策后果——在真正投入资源之前，先看见世界会如何演化。
-      </p>
-      <div class="hero-cta rise d4">
-        <button class="cta-primary" @click="$emit('enter')">开始推演 <span class="arr">→</span></button>
-        <button class="cta-ghost" @click="scrollToPhases">了解玩法</button>
+      <div class="hero-left">
+        <span class="hero-badge rise d0">RETAIL SIMULATION ENGINE · 零售经营推演引擎</span>
+        <h1 class="hero-title rise d1">Dmall <span class="gtext">Future</span> Market</h1>
+        <p class="hero-sub rise d2">让每一个经营决策，都先在未来发生一次。</p>
+        <p class="hero-desc rise d3">
+          把你的门店、供应链与顾客，抽象成会自主行动的数字实体；
+          在多智能体知识图谱上预演决策后果——在真正投入资源之前，先看见世界会如何演化。
+        </p>
+        <div class="hero-cta rise d4">
+          <button class="cta-primary" @click="$emit('demo')">观看演示 <span class="arr">→</span></button>
+          <button class="cta-ghost" @click="$emit('enter')">开始推演</button>
+        </div>
+      </div>
+      <!-- 迷你动画图谱：占满右半区 -->
+      <div class="mini-graph rise d35" ref="miniGraphRef">
+        <div class="mini-graph-label">LIVE SIMULATION</div>
+        <svg ref="miniSvgRef" class="mini-svg"></svg>
       </div>
     </section>
 
-    <!-- 能力数字条 -->
     <section class="stats rise d5" ref="statsRef">
-      <div class="stat" v-for="s in stats" :key="s.n">
-        <div class="stat-num">{{ s.n }}</div>
-        <div class="stat-label">{{ s.l }}</div>
+      <div class="stat" v-for="s in displayStats" :key="s.label">
+        <div class="stat-num">{{ s.display }}</div>
+        <div class="stat-label">{{ s.label }}</div>
       </div>
     </section>
 
-    <!-- 四步推演 -->
     <section class="phases">
       <h2 class="section-title">四步推演，<span class="gtext">让决策先发生一次</span></h2>
       <div class="phase-grid">
@@ -52,11 +54,11 @@
           <div class="phase-en">{{ p.en }}</div>
           <div class="phase-cn">{{ p.cn }}</div>
           <p class="phase-desc">{{ p.desc }}</p>
+          <div class="phase-arrow" v-if="i < phases.length - 1">→</div>
         </div>
       </div>
     </section>
 
-    <!-- 核心能力 -->
     <section class="features">
       <h2 class="section-title">核心能力</h2>
       <div class="feature-grid">
@@ -68,16 +70,17 @@
       </div>
     </section>
 
-    <!-- 技术栈 -->
     <section class="stack">
       <span class="stack-label">TECH STACK</span>
       <span class="stack-item" v-for="s in stack" :key="s">{{ s }}</span>
     </section>
 
-    <!-- 底部 CTA -->
     <section class="final-cta">
       <h2 class="final-title">准备好预演你的<br />下一个经营决策了吗？</h2>
-      <button class="cta-primary cta-lg" @click="$emit('enter')">进入 Future Market <span class="arr">→</span></button>
+      <div class="final-btns">
+        <button class="cta-primary cta-lg" @click="$emit('demo')">观看演示 <span class="arr">→</span></button>
+        <button class="cta-ghost cta-lg" style="margin-left:12px" @click="$emit('enter')">进入工作台</button>
+      </div>
     </section>
 
     <footer class="footer">
@@ -89,12 +92,90 @@
 </template>
 
 <script setup>
-const stats = [
-  { n: '3', l: '阶段推演闭环' },
-  { n: '多', l: '智能体并行涌现' },
-  { n: '2+', l: '内置场景包' },
-  { n: '实时', l: '世界动态可见' },
-];
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import * as d3 from 'd3';
+
+const emit = defineEmits(['enter', 'demo']);
+
+const miniGraphRef = ref(null);
+const miniSvgRef = ref(null);
+const displayStats = ref([
+  { label: '客流预测准确率', display: '0', target: 85 },
+  { label: '内置实体类型', display: '0', target: 10 },
+  { label: '场景包', display: '0', target: 2 },
+  { label: '实时推演', display: '0', target: 100 },
+]);
+
+let miniSim = null;
+
+// 迷你图谱动画
+function initMiniGraph() {
+  if (!miniSvgRef.value) return;
+  const el = miniGraphRef.value;
+  const width = el.clientWidth || 600;
+  const height = el.clientHeight || 200;
+  if (width < 10 || height < 10) return;
+
+  const svg = d3.select(miniSvgRef.value).attr('width', width).attr('height', height);
+  svg.selectAll('*').remove();
+
+  const colors = ['#0EA5E9', '#E5484D', '#30A46C', '#EF9F27', '#0090FF', '#12A594', '#FF7A59', '#64748B', '#F43F5E', '#8B5CF6', '#EC4899', '#10B981'];
+  const nodeCount = 16;
+  const nodes = Array.from({ length: nodeCount }, (_, i) => ({
+    id: i, x: Math.random() * width, y: Math.random() * height,
+    vx: 0, vy: 0, color: colors[i % colors.length],
+    r: 3 + Math.random() * 7,
+  }));
+  const links = [];
+  for (let i = 0; i < nodeCount; i++) {
+    for (let j = i + 1; j < nodeCount; j++) {
+      if (Math.random() < 0.18) links.push({ source: i, target: j });
+    }
+  }
+  // 保证最低连通性
+  for (let i = 1; i < nodeCount; i++) {
+    if (!links.some(l => l.source === i || l.target === i)) {
+      links.push({ source: i, target: Math.floor(Math.random() * i) });
+    }
+  }
+
+  const linkSel = svg.append('g').selectAll('line').data(links).enter().append('line')
+    .attr('stroke', 'rgba(14,165,233,0.25)').attr('stroke-width', 1);
+  const nodeSel = svg.append('g').selectAll('circle').data(nodes).enter().append('circle')
+    .attr('r', d => d.r).attr('fill', d => d.color).attr('opacity', 0.75);
+
+  miniSim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).distance(55).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-80))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide().radius(d => d.r + 6))
+    .alpha(0.6).alphaDecay(0.008)
+    .on('tick', () => {
+      linkSel.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      nodeSel.attr('cx', d => d.x).attr('cy', d => d.y);
+    });
+}
+
+// 统计数字递增动画
+function animateStats() {
+  displayStats.value.forEach((s, i) => {
+    const start = 0;
+    const end = s.target;
+    const duration = 1500;
+    const startTime = performance.now() + i * 200;
+    function tick(now) {
+      const elapsed = now - startTime;
+      if (elapsed < 0) { requestAnimationFrame(tick); return; }
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const val = Math.round(start + (end - start) * eased);
+      displayStats.value[i] = { ...displayStats.value[i], display: s.target === 100 ? val + '%' : val + (s.target === 2 ? '+' : '') };
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+}
 
 const phases = [
   { en: 'WHAT IF', cn: '构建世界', desc: '输入场景与假设事件，LLM 抽取实体与初始关系，搭建可推演的数字世界。' },
@@ -114,9 +195,10 @@ const features = [
 
 const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱'];
 
-function scrollToPhases() {
-  document.querySelector('.phases')?.scrollIntoView({ behavior: 'smooth' });
-}
+onMounted(() => {
+  setTimeout(() => { initMiniGraph(); animateStats(); }, 300);
+});
+onBeforeUnmount(() => { if (miniSim) miniSim.stop(); });
 </script>
 
 <style scoped>
@@ -154,15 +236,9 @@ function scrollToPhases() {
   padding: 18px 40px; max-width: 1200px; margin: 0 auto;
 }
 .nav-brand { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.logo-mark {
-  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
-  background: linear-gradient(135deg, #0EA5E9, #0369A1);
-  box-shadow: 0 0 18px rgba(14, 165, 233, 0.55);
-  position: relative;
-}
-.logo-mark::after {
-  content: ''; position: absolute; inset: 7px; border-radius: 4px;
-  border: 1.5px solid rgba(255, 255, 255, 0.75);
+.home-brand-logo {
+  display: block; width: 220px; height: 52px; object-fit: contain; object-position: left center;
+  filter: brightness(0) invert(1); opacity: 0.94;
 }
 .nav-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
 .nav-title { font-size: 14px; font-weight: 700; letter-spacing: 0.4px; }
@@ -176,37 +252,71 @@ function scrollToPhases() {
 .arr { display: inline-block; transition: transform 0.2s; }
 .nav-enter:hover .arr, .cta-primary:hover .arr, .cta-lg:hover .arr { transform: translateX(3px); }
 
-/* ---------- Hero ---------- */
-.hero { position: relative; text-align: center; padding: 88px 24px 40px; }
+/* ---------- Hero — 两栏布局 ---------- */
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 40px 60px;
+  min-height: 560px;
+}
+.hero-left { display: flex; flex-direction: column; align-items: flex-start; }
 .hero-badge {
   display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 2px;
   color: #8FBCEB; border: 1px solid rgba(14, 165, 233, 0.35);
   background: rgba(14, 165, 233, 0.08); padding: 6px 16px; border-radius: 999px; margin-bottom: 26px;
 }
 .hero-title {
-  margin: 0 0 18px; font-size: clamp(40px, 7vw, 74px); font-weight: 700; letter-spacing: 1px; line-height: 1.08;
-  color: #F2F8FF; text-shadow: 0 0 60px rgba(14, 165, 233, 0.35);
+  margin: 0 0 18px; font-size: clamp(32px, 4.5vw, 58px); font-weight: 700; letter-spacing: 1px; line-height: 1.1;
+  color: #F2F8FF; text-shadow: 0 0 60px rgba(14, 165, 233, 0.35); text-align: left;
 }
 .gtext {
   background: linear-gradient(100deg, #7DD3FC 0%, #38BDF8 45%, #0EA5E9 90%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.hero-sub { font-size: clamp(16px, 2.4vw, 21px); font-weight: 500; color: #7DD3FC; margin: 0 0 20px; letter-spacing: 0.5px; }
+.hero-sub { font-size: clamp(14px, 1.8vw, 18px); font-weight: 500; color: #7DD3FC; margin: 0 0 16px; letter-spacing: 0.5px; text-align: left; }
 .hero-desc {
-  font-size: 14.5px; line-height: 1.95; color: #A6BBD4; max-width: 640px; margin: 0 auto 36px;
+  font-size: 13.5px; line-height: 1.9; color: #A6BBD4; margin: 0 0 32px; text-align: left;
 }
-.hero-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
 .cta-primary {
   background: linear-gradient(135deg, #0EA5E9, #0369A1); color: #fff; border: none;
-  padding: 13px 30px; font-size: 15px; font-weight: 600; border-radius: 12px; cursor: pointer;
+  padding: 12px 28px; font-size: 14px; font-weight: 600; border-radius: 12px; cursor: pointer;
   box-shadow: 0 8px 30px rgba(14, 165, 233, 0.35); transition: all 0.2s;
 }
 .cta-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(14, 165, 233, 0.5); }
 .cta-ghost {
   background: transparent; color: #BFE0FF; border: 1px solid rgba(56, 189, 248, 0.4);
-  padding: 13px 30px; font-size: 15px; font-weight: 500; border-radius: 12px; cursor: pointer; transition: all 0.2s;
+  padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 12px; cursor: pointer; transition: all 0.2s;
 }
 .cta-ghost:hover { border-color: #0EA5E9; background: rgba(14, 165, 233, 0.08); }
+
+/* ---------- 迷你图谱 — 充满右列 ---------- */
+.mini-graph {
+  position: relative;
+  width: 100%; height: 420px;
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: radial-gradient(ellipse at 40% 40%, rgba(14, 165, 233, 0.1), rgba(6,11,20,0.8) 70%);
+  box-shadow: 0 0 60px rgba(14, 165, 233, 0.08), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.mini-graph-label {
+  position: absolute; top: 12px; left: 14px; z-index: 2;
+  font-size: 10px; font-weight: 700; letter-spacing: 2px; color: rgba(14, 165, 233, 0.6);
+}
+.mini-svg { width: 100%; height: 100%; }
+
+/* ---------- 阶段箭头 ---------- */
+.phase-card { position: relative; }
+.phase-arrow {
+  position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+  font-size: 18px; color: rgba(56, 189, 248, 0.3); z-index: 1; pointer-events: none;
+}
+@media (max-width: 960px) { .phase-arrow { display: none; } }
 
 /* ---------- 能力数字条 ---------- */
 .stats {
@@ -285,6 +395,7 @@ section { position: relative; }
   background: radial-gradient(600px 300px at 50% 50%, rgba(14, 165, 233, 0.14), transparent 70%);
 }
 .final-title { font-size: clamp(24px, 4vw, 38px); font-weight: 700; line-height: 1.4; margin: 0 0 34px; }
+.final-btns { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
 .cta-lg { padding: 16px 44px; font-size: 16px; }
 
 .footer {
@@ -296,17 +407,22 @@ section { position: relative; }
 /* ---------- 入场动画 ---------- */
 .rise { animation: rise 0.75s cubic-bezier(0.22, 0.9, 0.3, 1) both; }
 .d0 { animation-delay: 0.05s; } .d1 { animation-delay: 0.12s; } .d2 { animation-delay: 0.2s; }
-.d3 { animation-delay: 0.28s; } .d4 { animation-delay: 0.36s; } .d5 { animation-delay: 0.46s; }
+.d3 { animation-delay: 0.28s; } .d35 { animation-delay: 0.32s; } .d4 { animation-delay: 0.36s; } .d5 { animation-delay: 0.46s; }
 @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; padding: 60px 24px 40px; }
+  .hero-left { align-items: center; text-align: center; }
+  .hero-title, .hero-sub, .hero-desc { text-align: center; }
+  .mini-graph { height: 260px; }
   .phase-grid { grid-template-columns: repeat(2, 1fr); }
   .stats { grid-template-columns: repeat(2, 1fr); }
+  .phase-arrow { display: none; }
 }
 @media (max-width: 640px) {
   .phase-grid, .feature-grid { grid-template-columns: 1fr; }
   .nav { padding: 14px 18px; }
+  .home-brand-logo { width: 170px; height: 40px; }
   .nav-sub { display: none; }
-  .hero { padding-top: 56px; }
 }
 </style>

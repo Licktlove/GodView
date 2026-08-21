@@ -115,7 +115,13 @@ import { detectCommunities, detectBridgeNodes, detectConflicts, shortestPath } f
 
 defineEmits(['chat']);
 
-const NODE_R = 8; // 固定节点半径，不再按重要性缩放
+const NODE_R_MIN = 6;
+const NODE_R_MAX = 26;
+
+function nodeRadius(d) {
+  const imp = d._imp || 10;
+  return NODE_R_MIN + (imp / 100) * (NODE_R_MAX - NODE_R_MIN);
+}
 
 const containerRef = ref(null);
 const svgRef = ref(null);
@@ -314,6 +320,21 @@ function renderGraph() {
   bgPattern.append('circle').attr('cx', 3).attr('cy', 3).attr('r', 1.3).attr('fill', 'rgba(14,165,233,0.16)');
   svgSel.append('rect').attr('width', width).attr('height', height).attr('fill', 'url(#gv-dots)');
 
+  // SVG 滤镜：节点光晕
+  const filter = bgDefs.append('filter').attr('id', 'node-glow').attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+  filter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'blur');
+  filter.append('feMerge').selectAll('feMergeNode').data(['blur', 'SourceGraphic']).enter().append('feMergeNode').attr('in', d => d);
+
+  // 冲突边脉冲动画
+  bgDefs.append('style').text(`
+    @keyframes dash-march { to { stroke-dashoffset: -20; } }
+    @keyframes node-fade-in { from { opacity: 0; r: 2; } to { opacity: 1; } }
+    @keyframes bridge-pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+    .edge-conflict { animation: dash-march 0.8s linear infinite; }
+    .node-new { animation: node-fade-in 1.2s ease-out; }
+    .bridge-ring { animation: bridge-pulse 2s ease-in-out infinite; }
+  `);
+
   const imp = computeImportance(store.entities, store.edges);
 
   let nodes = store.entities.map(e => ({
@@ -412,16 +433,22 @@ function renderGraph() {
     .on('mouseout', () => { applyEmphasis(); });
 
   node.append('circle')
-    .attr('r', NODE_R)
+    .attr('r', d => nodeRadius(d))
     .attr('fill', d => typeColorFor(d.type))
     .attr('stroke', d => d._new ? '#FF4500' : '#FFF')
-    .attr('stroke-width', d => d._new ? 3 : 1.5);
+    .attr('stroke-width', d => d._new ? 3 : 1.5)
+    .attr('filter', d => {
+      // 前3枢纽节点加光晕
+      const top3 = nodes.slice().sort((a, b) => (b._imp || 0) - (a._imp || 0)).slice(0, 3);
+      return top3.includes(d) ? 'url(#node-glow)' : null;
+    })
+    .attr('class', d => d._new ? 'node-new' : null);
 
   node.append('text')
     .text(d => d.name)
     .attr('font-size', 11).attr('font-family', 'Noto Sans SC, sans-serif')
     .attr('fill', 'var(--ink)')
-    .attr('dx', NODE_R + 4)
+    .attr('dx', d => nodeRadius(d) + 4)
     .attr('dy', 4)
     .attr('pointer-events', 'none');
 
@@ -440,12 +467,12 @@ function renderGraph() {
     });
   }
 
-  // Feature 5: Bridge node markers (outer ring)
+  // Feature 5: Bridge node markers (outer ring) — pulse animation
   node.selectAll('circle.bridge-ring').remove();
   node.filter(d => localBridges.includes(d.id))
     .insert('circle', ':first-child')
     .attr('class', 'bridge-ring')
-    .attr('r', NODE_R + 6)
+    .attr('r', d => nodeRadius(d) + 7)
     .attr('fill', 'none')
     .attr('stroke', '#ff9f0a')
     .attr('stroke-width', 1.5)
@@ -472,18 +499,18 @@ function renderGraph() {
       .force('link', d3.forceLink(links).id(d => d.id).distance(160).strength(0)) // resolves source/target refs
       .force('x', d3.forceX(d => d._tx).strength(1))
       .force('y', d3.forceY(d => d._ty).strength(1))
-      .force('charge', d3.forceManyBody().strength(-30))
-      .force('collide', d3.forceCollide().radius(d => NODE_R + 8))
+      .force('charge', d3.forceManyBody().strength(d => -(nodeRadius(d) * 8)))
+      .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 8))
       .alphaDecay(0.08).alpha(0.7);
   } else {
     // force (and timeline)
     simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id(d => d.id).distance(160).strength(0.1))
-      .force('charge', d3.forceManyBody().strength(-550))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius(d => NODE_R + 30))
-      .force('x', d3.forceX(width / 2).strength(0.05))
-      .force('y', d3.forceY(height / 2).strength(0.05));
+      .force('link', d3.forceLink(links).id(d => d.id).distance(220).strength(0.08))
+      .force('charge', d3.forceManyBody().strength(d => -(nodeRadius(d) * 35)))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
+      .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 28))
+      .force('x', d3.forceX(width / 2).strength(0.02))
+      .force('y', d3.forceY(height / 2).strength(0.02));
   }
 
   simulation.on('tick', () => {
