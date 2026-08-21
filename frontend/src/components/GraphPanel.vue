@@ -4,6 +4,7 @@
       <span class="panel-title">知识图谱</span>
       <div class="header-tools">
         <input class="graph-search" v-model="searchQuery" placeholder="搜索实体…" @input="applyEmphasis" />
+        <button class="tool-btn" :class="{ active: hideIsolated }" title="隐藏没有连边的孤立节点" @click="toggleHideIsolated">隐藏孤立</button>
         <button class="tool-btn" :class="{ 'path-on': pathMode }" title="点选两个节点高亮最短路径" @click="togglePathMode">路径</button>
         <button class="tool-btn" title="重新布局" @click="renderGraph"><span class="icon-spin">↻</span></button>
       </div>
@@ -128,6 +129,20 @@ const svgRef = ref(null);
 const selectedNode = ref(null);
 const showEdgeLabels = ref(true);
 const legendOpen = ref(true);
+const hideIsolated = ref(false);   // C: 隐藏没有任何连边的孤立节点
+
+// C: 计算每个节点的度数（连边数），用于识别孤立节点与差异化样式
+const degreeMap = ref({});
+function computeDegrees() {
+  const m = {};
+  store.entities.forEach(e => { m[e.id] = 0; });
+  store.edges.forEach(e => {
+    if (m[e.source] != null) m[e.source]++;
+    if (m[e.target] != null) m[e.target]++;
+  });
+  degreeMap.value = m;
+}
+function isIsolated(id) { return (degreeMap.value[id] || 0) === 0; }
 
 // ---- New interaction state ----
 const searchQuery = ref('');
@@ -278,6 +293,12 @@ function clearPath() {
   pathSource.value = null; pathTarget.value = null; pathHighlight.value = []; pathMode.value = false;
   applyEmphasis();
 }
+
+// C: 切换"隐藏孤立节点"
+function toggleHideIsolated() {
+  hideIsolated.value = !hideIsolated.value;
+  renderGraph();
+}
 function computePath() {
   const p = shortestPath(store.entities, store.edges, pathSource.value, pathTarget.value);
   pathHighlight.value = p || [];
@@ -296,6 +317,7 @@ function setLayout(m) {
 function renderGraph() {
   if (!svgRef.value || !store.entities.length) return;
   computeTypes();
+  computeDegrees();   // C: 计算度数用于孤立节点识别/样式
   const container = containerRef.value;
   const width = container.clientWidth;
   const height = container.clientHeight;
@@ -339,12 +361,17 @@ function renderGraph() {
 
   let nodes = store.entities.map(e => ({
     ...e, _imp: imp[e.id] || 10,
+    _isolated: isIsolated(e.id),
     _neighbors: store.edges.filter(x => x.source === e.id || x.target === e.id).map(x => {
       const o = store.entities.find(y => y.id === (x.source === e.id ? x.target : x.source));
       return o ? { name: o.name, relation: x.relation, round: x.round } : null;
     }).filter(Boolean),
     _episodes: store.episodes[e.id] || [],
   }));
+
+  // C: 隐藏孤立节点（无连边）—— 在构建 nodeIds 之前剔除，边随之自然过滤
+  if (hideIsolated.value) nodes = nodes.filter(n => !n._isolated);
+  if (!nodes.length) return;
 
   const nodeIds = new Set(nodes.map(n => n.id));
   let links = store.edges
@@ -434,9 +461,10 @@ function renderGraph() {
 
   node.append('circle')
     .attr('r', d => nodeRadius(d))
-    .attr('fill', d => typeColorFor(d.type))
-    .attr('stroke', d => d._new ? '#FF4500' : '#FFF')
+    .attr('fill', d => d._isolated ? '#d2d6da' : typeColorFor(d.type))
+    .attr('stroke', d => d._new ? '#FF4500' : (d._isolated ? '#9aa0a6' : '#FFF'))
     .attr('stroke-width', d => d._new ? 3 : 1.5)
+    .attr('stroke-dasharray', d => d._isolated ? '4 3' : null)
     .attr('filter', d => {
       // 前3枢纽节点加光晕
       const top3 = nodes.slice().sort((a, b) => (b._imp || 0) - (a._imp || 0)).slice(0, 3);
@@ -447,7 +475,7 @@ function renderGraph() {
   node.append('text')
     .text(d => d.name)
     .attr('font-size', 11).attr('font-family', 'Noto Sans SC, sans-serif')
-    .attr('fill', 'var(--ink)')
+    .attr('fill', d => d._isolated ? '#9aa0a6' : 'var(--ink)')
     .attr('dx', d => nodeRadius(d) + 4)
     .attr('dy', 4)
     .attr('pointer-events', 'none');
@@ -504,13 +532,14 @@ function renderGraph() {
       .alphaDecay(0.08).alpha(0.7);
   } else {
     // force (and timeline)
+    // A: 孤立节点无连边约束，力导向会把它们甩到外围；用更强的向心拉力把它们聚拢到中心圈
     simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(links).id(d => d.id).distance(220).strength(0.08))
       .force('charge', d3.forceManyBody().strength(d => -(nodeRadius(d) * 35)))
       .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
       .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 28))
-      .force('x', d3.forceX(width / 2).strength(0.02))
-      .force('y', d3.forceY(height / 2).strength(0.02));
+      .force('x', d3.forceX(width / 2).strength(d => d._isolated ? 0.12 : 0.02))
+      .force('y', d3.forceY(height / 2).strength(d => d._isolated ? 0.12 : 0.02));
   }
 
   simulation.on('tick', () => {
