@@ -1,5 +1,6 @@
 import { store, pushLog, addEpisode } from '../store/sim';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
+import { synthesizeKPIs } from './kpi';
 
 // 加载当前场景包的 demoData（无 LLM Key 或快速体验时使用）。
 // 各场景示例数据在 scenarios/*.js 的 demoData 字段里定义。
@@ -68,5 +69,6 @@ export function loadDemo() {
   store.report = { verdict: '新茶与私域是稳增长主线', confidence: 0.35, confidence_note: '合成演示数据', fullContent: '' };
   store.ui.b3 = 'success';
   store.ui.b4 = 'pending';
+  synthesizeKPIs(store.growth);
   pushLog('示例推演完成：节点 ' + store.entities.length + '，关系 ' + store.edges.length, 'ok');
 }
