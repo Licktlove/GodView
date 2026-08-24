@@ -55,7 +55,7 @@
           <div class="access-code">ACCESS / 01</div>
           <h2>进入决策控制台</h2>
           <p>从一个经营场景开始，构建世界、启动推演，最后得到可解释的行动建议。</p>
-          <button class="access-primary" @click="$emit('enter')">进入工作台 <span class="arr">→</span></button>
+          <button type="button" class="access-primary" @click="$emit('enter')">进入工作台 <span class="arr">→</span></button>
           <button type="button" class="access-secondary" @click="$emit('workflow')">
             先看看系统如何工作 <span>↓</span>
           </button>
@@ -64,8 +64,11 @@
         </aside>
       </main>
 
-      <section class="entry-stats">
-        <div class="entry-stat" v-for="s in stats" :key="s.tag"><strong>{{ s.n }}</strong><span><b>{{ s.tag }}</b>{{ s.l }}</span></div>
+      <section class="entry-stats" aria-label="当前演示场景指标">
+        <div class="entry-stats-head"><span>DEMO SNAPSHOT</span><b>社区团购低价截流 · 当前演示基线</b></div>
+        <div class="entry-stats-grid">
+          <div class="entry-stat" v-for="s in stats" :key="s.tag"><strong>{{ s.n }}</strong><span><b>{{ s.tag }}</b>{{ s.l }}</span></div>
+        </div>
       </section>
 
       <footer class="entry-footer">
@@ -780,15 +783,19 @@ const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱
   stroke-dasharray: 4 5;
   filter: drop-shadow(0 0 3px rgba(78,166,223,0.32));
 }
-.graph-node { position: absolute; display: flex; align-items: center; gap: 5px; color: #a7bac8; font-family: var(--font-body); font-size: 13px; white-space: nowrap; }
-.graph-node b { width: 9px; height: 9px; border-radius: 50%; background: #4ea6df; box-shadow: 0 0 0 2px rgba(78,166,223,0.14), 0 0 13px rgba(78,166,223,0.9); }
+.graph-node { position: absolute; display: flex; align-items: center; gap: 5px; color: #a7bac8; font-family: var(--font-body); font-size: 13px; white-space: nowrap; animation: nodeDrift 5.6s ease-in-out infinite; }
+.graph-node b { position: relative; width: 9px; height: 9px; border-radius: 50%; background: #4ea6df; box-shadow: 0 0 0 2px rgba(78,166,223,0.14), 0 0 13px rgba(78,166,223,0.9); animation: nodeGlow 3.4s ease-in-out infinite; }
+.graph-node b::after { content: ''; position: absolute; inset: -4px; border: 1px solid rgba(78,166,223,0.28); border-radius: 50%; animation: nodeRing 3.4s ease-in-out infinite; }
 .graph-node em { font-style: normal; }
 .node-a { left: 5%; top: 63%; }
-.node-b { left: 32%; top: 18%; }
-.node-c { left: 52%; top: 63%; }
-.node-d { left: 72%; top: 20%; }
+.node-b { left: 32%; top: 18%; animation-delay: -1.2s; }
+.node-c { left: 52%; top: 63%; animation-delay: -2.1s; }
+.node-d { left: 72%; top: 20%; animation-delay: -3.2s; }
 .node-e { right: 2%; top: 78%; }
 .node-e b { background: #e6c15d; box-shadow: 0 0 0 2px rgba(230,193,93,0.14), 0 0 13px rgba(230,193,93,0.86); }
+@keyframes nodeDrift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes nodeGlow { 0%, 100% { opacity: 0.72; } 50% { opacity: 1; } }
+@keyframes nodeRing { 0%, 100% { transform: scale(0.82); opacity: 0.25; } 50% { transform: scale(1.24); opacity: 0.8; } }
 .preview-bottomline { position: absolute; left: 16px; right: 16px; bottom: 9px; letter-spacing: 0.03em; color: #6b8398; }
 .preview-bottomline b { color: #dce9f2; font-weight: 500; }
 
@@ -903,6 +910,7 @@ const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -10px 18px rgba(20,70,110,0.16), 0 10px 26px rgba(31,120,193,0.27);
 }
 .access-primary:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.access-primary:focus-visible, .access-secondary:focus-visible { outline: 2px solid #8dd1fb; outline-offset: 3px; }
 .access-secondary {
   margin-top: 8px;
   padding: 10px 18px;
@@ -930,7 +938,10 @@ const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱
 .access-meta { display: flex; justify-content: space-between; margin-top: 12px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; color: #70889d; }
 .access-meta strong { color: #56d39a; font-weight: 500; }
 
-.entry-stats { display: grid; grid-template-columns: repeat(4, 1fr); flex: 0 0 auto; margin-top: clamp(18px, 2vh, 28px); border-top: 1px solid rgba(111,184,226,0.2); border-bottom: 1px solid rgba(88,148,193,0.1); }
+.entry-stats { display: flex; flex-direction: column; flex: 0 0 auto; margin-top: clamp(18px, 2vh, 28px); border-top: 1px solid rgba(111,184,226,0.2); border-bottom: 1px solid rgba(88,148,193,0.1); }
+.entry-stats-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 6px; color: #7696ad; font: 10px var(--font-mono); letter-spacing: 0.12em; }
+.entry-stats-head b { color: #9db8ca; font: 11px var(--font-body); letter-spacing: 0.02em; font-weight: 400; }
+.entry-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
 .entry-stat { display: flex; align-items: baseline; justify-content: center; gap: 14px; min-height: 72px; border-right: 1px solid rgba(88,148,193,0.14); }
 .entry-stat:last-child { border-right: none; }
 .entry-stat > strong { font-family: var(--font-display); font-size: 44px; line-height: 1; letter-spacing: -0.05em; background: linear-gradient(180deg, #f7fdff 0%, #6bd3ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 18px rgba(78,166,223,0.18); }
@@ -960,7 +971,7 @@ const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱
   .entry-nav { align-items: flex-start; }
   .entry-status { font-size: 0; }
   .entry-title { font-size: 34px; }
-  .entry-stats { grid-template-columns: 1fr; }
+  .entry-stats-grid { grid-template-columns: 1fr; }
   .entry-stat { justify-content: flex-start; padding-left: 14px; border-right: none; border-bottom: 1px solid rgba(88,183,247,0.09); }
   .entry-stat:last-child { border-bottom: none; }
   .entry-footer { align-items: flex-start; flex-direction: column; }
@@ -995,5 +1006,9 @@ const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱
   .entry-stat > strong { font-size: 38px; }
   .entry-footer { font-size: 12px; }
   .entry-bridge { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .graph-node, .graph-node b, .graph-node b::after, .entry-bridge span, .entry-bridge span::after, .status-led { animation: none; }
+  .access-primary:hover { transform: none; filter: none; }
 }
 </style>

@@ -141,6 +141,7 @@ input, textarea { font-family: inherit; }
 .home-return-btn:hover { border-color: var(--hairline-strong); background: rgba(78, 166, 223, 0.14); color: var(--charcoal); }
 .home-return-btn:active { transform: translateY(1px); }
 .home-return-btn b { font-weight: 600; }
+.workflow-return-btn { border-color: rgba(78, 166, 223, 0.34); color: #a9cce3; }
 .brand-block { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; cursor: pointer; }
 .brand-logo { display: block; width: 165px; height: 32px; object-fit: contain; object-position: left center; }
 .app-header .brand-logo {
@@ -257,6 +258,12 @@ input:checked + .slider:before { transform: translateX(14px); }
 }
 .step-card.active { border-color: var(--ink); }
 .step-card.completed { border-color: var(--success); }
+.step-card { scroll-margin-top: 16px; }
+.step-card.workflow-focus { animation: workbench-focus 1.2s ease-out; }
+@keyframes workbench-focus {
+  0%, 100% { border-color: var(--hairline); box-shadow: none; }
+  35% { border-color: var(--primary-light); box-shadow: 0 0 0 3px var(--primary-glow), 0 0 24px rgba(78,166,223,0.28); }
+}
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .step-info { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
 .step-num { font-weight: 700; font-size: 20px; color: var(--hairline-strong); }
@@ -559,3 +566,7 @@ input:checked + .slider:before { transform: translateX(14px); }
 .kpi-diff-item { margin-right: 12px; font-family: var(--font-mono); font-size: 11px; }
 .kpi-up { color: var(--green); font-weight: 700; }
 .kpi-down { color: var(--red); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .step-card.workflow-focus { animation: none; border-color: var(--primary-light); }
+}

@@ -5,6 +5,9 @@
         <button type="button" class="home-return-btn" @click="viewMode='home'" aria-label="返回首页">
           <span>←</span><b>首页</b>
         </button>
+        <button type="button" class="home-return-btn workflow-return-btn" @click="viewMode='workflow'" aria-label="返回流程页">
+          <span>←</span><b>流程页</b>
+        </button>
         <div class="brand-block" @click="viewMode='home'">
           <img class="brand-logo" src="/brand-logo.svg" alt="公司 Logo" />
           <div class="brand-sub">让每一个经营决策，都先在未来发生一次。</div>
@@ -32,7 +35,7 @@
 
     <main class="content-area">
       <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @workflow="viewMode='workflow'" @demo="runDemoSequence" />
-      <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" />
+      <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" @phase="openWorkflowPhase" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
         <GraphPanel @chat="onChatFromGraph" />
@@ -48,9 +51,9 @@
             </div>
 
             <!-- Phase: WHAT IF -->
-            <div class="phase-title"><span class="phase-en">WHAT IF</span><span class="phase-cn">构建世界</span></div>
+            <div class="phase-title" id="workbench-phase-what-if"><span class="phase-en">WHAT IF</span><span class="phase-cn">构建世界</span></div>
             <!-- Step 1 -->
-            <div class="step-card" :class="{ active: store.ui.b1 === 'processing', completed: store.ui.b1 === 'success' }">
+            <div class="step-card" id="workbench-step-what-if" :class="{ active: store.ui.b1 === 'processing', completed: store.ui.b1 === 'success' }">
               <div class="card-header" @click="toggleStep(1)">
                 <span class="step-collapse-icon">{{ collapsedSteps.has(1) ? "▸" : "▾" }}</span>
                 <span class="badge" :class="store.ui.b1" @click.stop="toggleStep(1)">{{ badgeText(store.ui.b1) }}</span>
@@ -94,9 +97,9 @@
             </div>
 
             <!-- Phase: SIMULATE -->
-            <div class="phase-title"><span class="phase-en">SIMULATE</span><span class="phase-cn">自生长推演</span></div>
+            <div class="phase-title" id="workbench-phase-simulate"><span class="phase-en">SIMULATE</span><span class="phase-cn">自生长推演</span></div>
             <!-- Step 2 -->
-            <div class="step-card" :class="{ active: store.ui.b2 === 'processing', completed: store.ui.b2 === 'success' }">
+            <div class="step-card" id="workbench-step-simulate" :class="{ active: store.ui.b2 === 'processing', completed: store.ui.b2 === 'success' }">
               <div class="card-header" @click="toggleStep(2)">
                 <span class="step-collapse-icon">{{ collapsedSteps.has(2) ? "▸" : "▾" }}</span>
                 <span class="badge" :class="store.ui.b2" @click.stop="toggleStep(2)">{{ badgeText(store.ui.b2) }}</span>
@@ -131,9 +134,9 @@
             <div class="growth-panel growth-panel--phase" v-if="store.growth.length > 1"><GrowthPanel /></div>
 
             <!-- Phase: OBSERVE -->
-            <div class="phase-title"><span class="phase-en">OBSERVE</span><span class="phase-cn">决策报告</span></div>
+            <div class="phase-title" id="workbench-phase-observe"><span class="phase-en">OBSERVE</span><span class="phase-cn">决策报告</span></div>
             <!-- Step 3 -->
-            <div class="step-card" :class="{ active: store.ui.b3 === 'processing', completed: store.ui.b3 === 'success' }">
+            <div class="step-card" id="workbench-step-observe" :class="{ active: store.ui.b3 === 'processing', completed: store.ui.b3 === 'success' }">
               <div class="card-header" @click="toggleStep(3)">
                 <span class="step-collapse-icon">{{ collapsedSteps.has(3) ? "▸" : "▾" }}</span>
                 <span class="badge" :class="store.ui.b3" @click.stop="toggleStep(3)">{{ badgeText(store.ui.b3) }}</span>
@@ -257,9 +260,9 @@
             </div>
             </div>
             <!-- Phase: INTERVIEW（常驻） -->
-            <div class="phase-title phase-title--muted" v-if="store.ui.b2 === 'success'"><span class="phase-en">INTERVIEW</span><span class="phase-cn">随时问节点</span></div>
+            <div class="phase-title phase-title--muted" id="workbench-phase-interview" v-if="store.ui.b2 === 'success'"><span class="phase-en">INTERVIEW</span><span class="phase-cn">随时问节点</span></div>
             <!-- Step 4: Interview 节点（与任意 agent 对话） -->
-            <div class="step-card" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
+            <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
               <div class="card-header" @click="toggleStep(4)">
                 <span class="step-collapse-icon">{{ collapsedSteps.has(4) ? "▸" : "▾" }}</span>
                 <span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'" @click.stop="toggleStep(4)">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span>
@@ -390,6 +393,36 @@ const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '
 const statusClass = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'processing' : 'ready');
 const statusText = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'Processing' : 'Ready');
 const chatTargetName = computed(() => store.entities.find(e => e.id === store.chat.target)?.name || '');
+
+const workflowTargets = {
+  whatIf: 'workbench-step-what-if',
+  simulate: 'workbench-step-simulate',
+  observe: 'workbench-step-observe',
+  interview: 'workbench-step-interview',
+};
+
+function focusWorkbenchTarget(key) {
+  const target = document.getElementById(workflowTargets[key]);
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target.classList.add('workflow-focus');
+  window.setTimeout(() => target.classList.remove('workflow-focus'), 1200);
+}
+
+function openWorkflowPhase(key) {
+  viewMode.value = 'workbench';
+  if ((key === 'simulate' || key === 'observe') && !store.ui.step1Done) {
+    pushLog('请先完成“构建世界”，再进入后续推演步骤。', 'err');
+    nextTick(() => focusWorkbenchTarget('whatIf'));
+    return;
+  }
+  if (key === 'interview' && store.ui.b2 !== 'success') {
+    pushLog('请先完成“自生长推演”，再进入节点对话。', 'err');
+    nextTick(() => focusWorkbenchTarget('simulate'));
+    return;
+  }
+  nextTick(() => focusWorkbenchTarget(key));
+}
 
 function graphSummary() {
   return '实体：' + store.entities.map(e => e.name + '(' + e.type + ')').join('、') +
