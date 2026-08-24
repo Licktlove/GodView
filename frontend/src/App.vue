@@ -164,7 +164,7 @@
                   </span>
                 </div>
                 <div class="section-body" v-show="!collapsedSections.has(i)">
-                  <div v-if="store.reportSections[i]?.content" class="section-content" v-html="renderMarkdown(store.reportSections[i].content)"></div>
+                  <div v-if="store.reportSections[i]?.content" class="section-content" v-html="renderMarkdown(store.reportSections[i].content, s.title)"></div>
                   <div v-else class="loading-state"><span>生成中…</span></div>
                 </div>
               </div>
@@ -416,7 +416,7 @@ async function genReportStream() {
       const sectionSummary = summary + '\n\n' + evidence + '\n\n已有章节：' + doneContents.map(s => s.slice(0, 100)).join('；');
       const content = await streamChat(
         [{ role: 'system', content: '你是' + store.scenario.domain + '决策分析师。撰写指定章节，Markdown，80-150字。' },
-         { role: 'user', content: `报告标题：${outline.title || ''}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节内容。` }],
+         { role: 'user', content: `报告标题：${outline.title || ''}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节正文。直接输出正文，不要重复输出章节标题，不要使用 Markdown 一级或二级标题作为开头。` }],
         { temperature: 0.6, max_tokens: 1500, onToken: (delta, acc) => { store.reportSections[i] = { content: acc, status: 'generating' }; } }
       );
       doneContents.push(content || '（生成失败）');
@@ -473,9 +473,26 @@ function toggleSection(i) {
   collapsedSections.value = s;
 }
 
-function renderMarkdown(text) {
-  if (!text) return '';
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+function normalizeSectionTitle(value) {
+  return String(value || '')
+    .replace(/^\s*#{1,6}\s*/, '')
+    .replace(/^\s*(?:(?:第\s*)?\d+|[一二三四五六七八九十百千万]+)[\s、.．)）:：-]+/, '')
+    .replace(/[\s、。；;，,：:!?！？]+$/g, '')
+    .replace(/\s+/g, '')
+    .toLocaleLowerCase();
+}
+
+function stripDuplicateSectionHeading(text, sectionTitle) {
+  const content = String(text || '');
+  const firstHeading = content.match(/^(?:[ \t]*\r?\n)*[ \t]*(#{1,6})[ \t]+([^\r\n]+)(?:\r?\n|$)/);
+  if (!firstHeading || normalizeSectionTitle(firstHeading[2]) !== normalizeSectionTitle(sectionTitle)) return content;
+  return content.slice(firstHeading[0].length).replace(/^(?:[ \t]*\r?\n)+/, '');
+}
+
+function renderMarkdown(text, sectionTitle) {
+  const content = stripDuplicateSectionHeading(text, sectionTitle);
+  if (!content) return '';
+  return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')

@@ -586,7 +586,7 @@ function scrollToPhases() {
 }
 
 @media (max-height: 768px) {
-  .screen { transform: scale(0.94); transform-origin: center center; }
+  .screen:not(.entry-screen) { transform: scale(0.94); transform-origin: center center; }
 }
 
 @media (max-width: 1000px) {
@@ -988,12 +988,15 @@ function scrollToPhases() {
 @media (max-width: 1000px) {
   .home { overflow-y: auto; align-items: flex-start; }
   .entry-screen { width: 100%; height: auto; min-height: 100%; overflow: visible; }
-  .entry-main { grid-template-columns: 1fr; gap: 16px; padding: 6px 0; }
+  .entry-main { grid-template-columns: 1fr; flex: 0 0 auto; min-height: max-content; gap: 16px; padding: 6px 0; }
   .entry-intro { padding-right: 0; border-right: none; }
   .entry-bridge { display: none; }
   .entry-main::after { display: none; }
   .access-card { justify-self: start; max-width: none; }
   .preview-frame { max-width: none; }
+  .workflow-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1001px) and (max-width: 1199px) {
   .workflow-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
@@ -1006,6 +1009,16 @@ function scrollToPhases() {
   .entry-stat:last-child { border-bottom: none; }
   .entry-footer { align-items: flex-start; flex-direction: column; }
   .entry-system { flex-wrap: wrap; }
+}
+@media (min-width: 1001px) and (max-height: 960px) {
+  .home { overflow-y: auto; align-items: flex-start; }
+  .entry-screen {
+    width: min(100vw, calc(100dvh * 16 / 9));
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .entry-main { flex: 0 0 auto; min-height: max-content; }
 }
 @media (max-height: 768px) and (min-width: 1001px) {
   .entry-screen { padding-top: 8px; padding-bottom: 8px; gap: 6px; }
