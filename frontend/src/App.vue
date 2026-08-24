@@ -1,7 +1,10 @@
 <template>
   <div class="app">
-    <header class="app-header" v-if="viewMode!=='home'">
+    <header class="app-header" v-if="viewMode!=='home' && viewMode!=='workflow'">
       <div class="header-left">
+        <button type="button" class="home-return-btn" @click="viewMode='home'" aria-label="返回首页">
+          <span>←</span><b>首页</b>
+        </button>
         <div class="brand-block" @click="viewMode='home'">
           <img class="brand-logo" src="/brand-logo.svg" alt="公司 Logo" />
           <div class="brand-sub">让每一个经营决策，都先在未来发生一次。</div>
@@ -28,7 +31,8 @@
     </header>
 
     <main class="content-area">
-      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @demo="runDemoSequence" />
+      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @workflow="viewMode='workflow'" @demo="runDemoSequence" />
+      <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
         <GraphPanel @chat="onChatFromGraph" />
@@ -355,6 +359,7 @@ import { loadDemo } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
 import HomeView from './components/HomeView.vue';
+import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
 

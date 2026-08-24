@@ -56,23 +56,13 @@
           <h2>进入决策控制台</h2>
           <p>从一个经营场景开始，构建世界、启动推演，最后得到可解释的行动建议。</p>
           <button class="access-primary" @click="$emit('enter')">进入工作台 <span class="arr">→</span></button>
-          <button class="access-secondary" @click="scrollToPhases">先看看系统如何工作 <span>↓</span></button>
+          <button type="button" class="access-secondary" @click="$emit('workflow')">
+            先看看系统如何工作 <span>↓</span>
+          </button>
           <div class="access-note"><span class="status-led"></span><div><strong>无需账号</strong><br />当前为本地演示环境，点击即可开始。</div></div>
           <div class="access-meta"><span>ENGINE STATUS</span><strong>READY</strong></div>
         </aside>
       </main>
-
-      <section class="workflow-section" ref="phasesRef">
-        <div class="section-line"><span>WORKFLOW / 01—04</span><h2>从假设到决策</h2><span>四步推演闭环</span></div>
-        <div class="workflow-grid">
-          <article v-for="(p, i) in phases" :key="p.en" class="entry-stage">
-            <div class="stage-index">{{ String(i + 1).padStart(2, '0') }}</div>
-            <div class="stage-copy"><span>{{ p.en }}</span><strong>{{ p.cn }}</strong></div>
-            <p>{{ p.desc }}</p>
-            <small>{{ p.outcome }}</small>
-          </article>
-        </div>
-      </section>
 
       <section class="entry-stats">
         <div class="entry-stat" v-for="s in stats" :key="s.tag"><strong>{{ s.n }}</strong><span><b>{{ s.tag }}</b>{{ s.l }}</span></div>
@@ -87,24 +77,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-
-defineEmits(['enter']);
-
-const phasesRef = ref(null);
+defineEmits(['enter', 'workflow']);
 
 const stats = [
   { n: '12', tag: 'ENTITIES', l: '数字实体' },
   { n: '46', tag: 'RELATIONS', l: '关系路径' },
   { n: '06', tag: 'ROUNDS', l: '推演轮次' },
   { n: '03', tag: 'CHAINS', l: '因果链路' },
-];
-
-const phases = [
-  { en: 'WHAT IF', cn: '构建世界', desc: '输入场景与假设事件，LLM 抽取实体与初始关系，搭建可推演的数字世界。', outcome: '场景 → 实体 → 关系' },
-  { en: 'SIMULATE', cn: '自生长推演', desc: '多 agent 并行反应、涌现新实体与新关系，实时活动流呈现世界动态。', outcome: '动作 → 关系 → 生长' },
-  { en: 'OBSERVE', cn: '决策报告', desc: 'ReACT 式图谱检索证据，生成多章节报告，并提取因果链与决策建议。', outcome: '证据 → 因果 → 建议' },
-  { en: 'INTERVIEW', cn: '随时问节点', desc: '与任意实体深度对话，或问全局分析师「为什么客流掉了」。', outcome: '节点 → 对话 → 追问' },
 ];
 
 const iconPaths = {
@@ -127,11 +106,6 @@ const features = [
 
 const stack = ['Vue 3', 'D3.js', 'Express', 'LLM 多智能体', '力导向图谱'];
 
-function scrollToPhases() {
-  phasesRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  phasesRef.value?.classList.add('pulse');
-  setTimeout(() => phasesRef.value?.classList.remove('pulse'), 600);
-}
 </script>
 
 <style scoped>
@@ -157,9 +131,9 @@ function scrollToPhases() {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 50% 20%, rgba(78, 166, 223, 0.08), transparent 42%),
-    radial-gradient(circle at 12% 18%, rgba(23, 64, 128, 0.10), transparent 30%),
-    #050910;
+    radial-gradient(circle at 50% 20%, rgba(78, 166, 223, 0.16), transparent 44%),
+    radial-gradient(circle at 12% 18%, rgba(23, 92, 150, 0.18), transparent 34%),
+    linear-gradient(135deg, #0d2235 0%, #081827 52%, #07121f 100%);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-weight: 400;
@@ -681,11 +655,12 @@ function scrollToPhases() {
 }
 .entry-main {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: clamp(480px, 62vh, 680px);
+  margin-bottom: auto;
   display: grid;
   grid-template-columns: minmax(0, 1.84fr) minmax(330px, 0.84fr);
-  align-items: start;
+  align-items: center;
   gap: clamp(10px, 1.2vw, 18px);
   padding: 0;
 }
@@ -702,7 +677,7 @@ function scrollToPhases() {
   background-size: 18px 18px;
   mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
-  opacity: 0.2;
+  opacity: 0.28;
 }
 .entry-intro {
   position: relative;
@@ -758,9 +733,9 @@ function scrollToPhases() {
 .preview-frame {
   position: relative;
   width: 100%;
-  max-width: 740px;
-  height: clamp(132px, 17vh, 190px);
-  margin-top: clamp(7px, 1vh, 11px);
+  max-width: 880px;
+  height: clamp(220px, 24vh, 300px);
+  margin-top: clamp(10px, 1.2vh, 14px);
   padding: 14px 16px 12px;
   border: 1px solid rgba(78,166,223,0.16);
   border-radius: 14px;
@@ -801,7 +776,7 @@ function scrollToPhases() {
 .mini-graph path {
   fill: none;
   stroke: rgba(78,166,223,0.42);
-  stroke-width: 1.5;
+  stroke-width: 2;
   stroke-dasharray: 4 5;
   filter: drop-shadow(0 0 3px rgba(78,166,223,0.32));
 }
@@ -821,7 +796,7 @@ function scrollToPhases() {
   position: absolute;
   left: 52%;
   right: 22%;
-  top: 67%;
+  top: 56%;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -852,7 +827,7 @@ function scrollToPhases() {
   box-shadow: 0 0 12px rgba(255,212,92,0.8);
   animation: bridgePulse 2.8s ease-in-out infinite;
 }
-.entry-bridge b { position: absolute; top: -17px; left: 42%; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 400; white-space: nowrap; color: #839aac; }
+.entry-bridge b { position: absolute; top: -17px; left: 42%; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 400; white-space: nowrap; color: #9db8ca; }
 .entry-bridge i { font-family: var(--font-body); font-size: 16px; font-style: normal; color: #ffd45c; }
 @keyframes bridgePulse { 0%, 100% { transform: translateX(0); opacity: 0.45; } 50% { transform: translateX(230%); opacity: 1; } }
 @keyframes bridgeFlow { to { background-position: 24px 0, 0 0; } }
@@ -862,6 +837,7 @@ function scrollToPhases() {
   z-index: 1;
   width: 100%;
   max-width: 420px;
+  align-self: center;
   justify-self: end;
   padding: clamp(22px, 2.4vh, 30px);
   border: 1px solid rgba(98,141,181,0.28);
@@ -936,6 +912,7 @@ function scrollToPhases() {
   font-size: 14px;
 }
 .access-secondary:hover { border-color: rgba(88,148,193,0.42); background: rgba(78,166,223,0.06); }
+.access-secondary:active { transform: translateY(1px); background: rgba(78,166,223,0.1); }
 .access-secondary span { float: right; color: #85b4d4; }
 .access-note {
   display: flex;
@@ -953,25 +930,7 @@ function scrollToPhases() {
 .access-meta { display: flex; justify-content: space-between; margin-top: 12px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; color: #70889d; }
 .access-meta strong { color: #56d39a; font-weight: 500; }
 
-.workflow-section { flex: 0 0 auto; }
-.section-line { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; color: #7690a8; }
-.section-line h2 { margin: 0; font-family: var(--font-body); font-size: 18px; letter-spacing: 0.02em; color: #c8d4df; font-weight: 650; }
-.section-line span:last-child { margin-left: auto; color: #496c87; }
-.workflow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.entry-stage { position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 128px; padding: 16px 18px 15px; border: 1px solid rgba(88,148,193,0.24); border-radius: 12px; background: rgba(255,255,255,0.022); box-shadow: inset 0 1px 0 rgba(255,255,255,0.035); }
-.entry-stage:first-child { border-color: rgba(88,148,193,0.32); background: rgba(78,166,223,0.05); }
-.entry-stage > .stage-copy,
-.entry-stage > p,
-.entry-stage > small,
-.stage-index { position: relative; z-index: 1; }
-.stage-index { position: absolute; top: 11px; right: 12px; font-family: var(--font-mono); font-size: 12px; color: #7493ad; }
-.stage-copy { display: flex; flex-direction: column; gap: 2px; padding-right: 26px; }
-.stage-copy span { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.11em; color: #88a5bc; }
-.stage-copy strong { font-family: var(--font-body); font-size: 18px; line-height: 1.25; font-weight: 650; color: #edf3f7; }
-.entry-stage p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 42px; margin: 9px 0 8px; font-family: var(--font-body); font-size: 14px; line-height: 1.5; color: #a6b7c7; }
-.entry-stage small { font-family: var(--font-mono); font-size: 12px; color: #84abca; letter-spacing: 0.03em; }
-
-.entry-stats { display: grid; grid-template-columns: repeat(4, 1fr); flex: 0 0 auto; border-top: 1px solid rgba(88,148,193,0.1); border-bottom: 1px solid rgba(88,148,193,0.1); }
+.entry-stats { display: grid; grid-template-columns: repeat(4, 1fr); flex: 0 0 auto; margin-top: clamp(18px, 2vh, 28px); border-top: 1px solid rgba(111,184,226,0.2); border-bottom: 1px solid rgba(88,148,193,0.1); }
 .entry-stat { display: flex; align-items: baseline; justify-content: center; gap: 14px; min-height: 72px; border-right: 1px solid rgba(88,148,193,0.14); }
 .entry-stat:last-child { border-right: none; }
 .entry-stat > strong { font-family: var(--font-display); font-size: 44px; line-height: 1; letter-spacing: -0.05em; background: linear-gradient(180deg, #f7fdff 0%, #6bd3ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 18px rgba(78,166,223,0.18); }
@@ -988,23 +947,20 @@ function scrollToPhases() {
 @media (max-width: 1000px) {
   .home { overflow-y: auto; align-items: flex-start; }
   .entry-screen { width: 100%; height: auto; min-height: 100%; overflow: visible; }
-  .entry-main { grid-template-columns: 1fr; flex: 0 0 auto; min-height: max-content; gap: 16px; padding: 6px 0; }
+  .entry-main { grid-template-columns: 1fr; flex: 0 0 auto; min-height: max-content; align-items: start; gap: 16px; padding: 6px 0; }
+  .entry-main { margin-bottom: 0; }
   .entry-intro { padding-right: 0; border-right: none; }
   .entry-bridge { display: none; }
   .entry-main::after { display: none; }
   .access-card { justify-self: start; max-width: none; }
   .preview-frame { max-width: none; }
-  .workflow-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (min-width: 1001px) and (max-width: 1199px) {
-  .workflow-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
   .entry-screen { padding: 16px; }
   .entry-nav { align-items: flex-start; }
   .entry-status { font-size: 0; }
   .entry-title { font-size: 34px; }
-  .workflow-grid, .entry-stats { grid-template-columns: 1fr; }
+  .entry-stats { grid-template-columns: 1fr; }
   .entry-stat { justify-content: flex-start; padding-left: 14px; border-right: none; border-bottom: 1px solid rgba(88,183,247,0.09); }
   .entry-stat:last-child { border-bottom: none; }
   .entry-footer { align-items: flex-start; flex-direction: column; }
@@ -1023,20 +979,18 @@ function scrollToPhases() {
 @media (max-height: 768px) and (min-width: 1001px) {
   .entry-screen { padding-top: 8px; padding-bottom: 8px; gap: 6px; }
   .entry-nav { padding-bottom: 8px; }
-  .entry-main { gap: 12px; padding: 0; }
+  .entry-main { gap: 12px; padding: 0; min-height: max-content; align-items: start; }
   .entry-kicker { margin-top: 6px; margin-bottom: 4px; }
   .entry-title { font-size: clamp(34px, 5vh, 48px); }
   .entry-desc { margin-top: 6px; font-size: 14px; line-height: 1.5; }
   .entry-points { margin-top: 8px; }
   .entry-points span { padding: 5px 9px; font-size: 13px; }
-  .preview-frame { height: 112px; margin-top: 7px; }
+  .preview-frame { height: 180px; margin-top: 10px; }
   .access-card { padding: 20px 22px; }
   .access-card h2 { margin-top: 9px; margin-bottom: 6px; }
   .access-card > p { margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
   .access-note { margin-top: 10px; padding-top: 9px; font-size: 13px; }
   .access-meta { margin-top: 8px; }
-  .entry-stage { min-height: 112px; padding: 13px 14px 12px; }
-  .entry-stage p { min-height: 42px; margin: 7px 0 6px; -webkit-line-clamp: 2; font-size: 14px; }
   .entry-stat { min-height: 62px; }
   .entry-stat > strong { font-size: 38px; }
   .entry-footer { font-size: 12px; }
