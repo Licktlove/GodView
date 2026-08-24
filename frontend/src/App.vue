@@ -22,7 +22,7 @@
       </div>
       <div class="header-right" v-if="viewMode!=='home'">
         <span class="status-indicator" :class="statusClass"><span class="dot"></span>{{ statusText }}</span>
-        <button class="comparison-btn" v-if="store.comparison.baseline && store.comparison.withAssumptions" :class="{ active: comparisonMode }" @click="comparisonMode = !comparisonMode" title="对比模式：基线 vs 干预">
+        <button class="comparison-btn" v-if="store.comparison.baseline && store.comparison.withAssumptions" :class="{ active: comparisonMode }" @click="toggleComparison" title="对比模式：基线 vs 干预">
           ⚖ 对比
         </button>
         <div class="step-divider"></div>
@@ -50,14 +50,12 @@
               <div class="stat-card"><span class="stat-value">{{ store.growth.length - 1 }}</span><span class="stat-label">轮次</span></div>
             </div>
 
-            <!-- Phase: WHAT IF -->
-            <div class="phase-title" id="workbench-phase-what-if"><span class="phase-en">WHAT IF</span><span class="phase-cn">构建世界</span></div>
             <!-- Step 1 -->
             <div class="step-card" id="workbench-step-what-if" :class="{ active: store.ui.b1 === 'processing', completed: store.ui.b1 === 'success' }">
-              <div class="card-header" @click="toggleStep(1)">
-                <span class="step-collapse-icon">{{ collapsedSteps.has(1) ? "▸" : "▾" }}</span>
-                <span class="badge" :class="store.ui.b1" @click.stop="toggleStep(1)">{{ badgeText(store.ui.b1) }}</span>
-              </div>
+              <button type="button" class="card-header" @click="toggleStep(1)" :aria-expanded="!collapsedSteps.has(1)">
+                <span class="card-header-title"><span class="card-step-num">01</span><span class="card-header-copy"><b>WHAT IF</b><small>构建世界</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(1) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b1">{{ badgeText(store.ui.b1) }}</span></span>
+              </button>
               <div v-show="!collapsedSteps.has(1)">
                 <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="'例：' + (store.scenario.seedExamples?.[0] || '描述你的场景…')"></textarea></div>
                 <div class="preset-row">
@@ -89,21 +87,19 @@
             </div>
 
             <!-- WHAT IF 输出：实体标签紧随世界构建 -->
-            <div class="tags-container tags-container--phase" v-if="store.entities.length">
+            <div class="tags-container tags-container--phase" v-if="store.entities.length && !collapsedSteps.has(1)">
               <span class="tag-label">GENERATED ENTITIES ({{ store.entities.length }}) <span class="tag-hint" v-if="store.lockedIds.length">已锁定 {{ store.lockedIds.length }} 个主角常驻</span></span>
               <div class="tags-list">
                 <span class="entity-tag" :class="{ locked: store.lockedIds.includes(e.id) }" v-for="e in store.entities" :key="e.id" @click="showNode(e)">{{ e.name }}<span class="t">{{ e.type }}</span><span class="lock-toggle" :class="{ on: store.lockedIds.includes(e.id) }" @click.stop="toggleLock(e.id)" :title="store.lockedIds.includes(e.id) ? '取消锁定' : '锁定为常驻主角'">{{ store.lockedIds.includes(e.id) ? '🔒' : '◌' }}</span></span>
               </div>
             </div>
 
-            <!-- Phase: SIMULATE -->
-            <div class="phase-title" id="workbench-phase-simulate"><span class="phase-en">SIMULATE</span><span class="phase-cn">自生长推演</span></div>
             <!-- Step 2 -->
             <div class="step-card" id="workbench-step-simulate" :class="{ active: store.ui.b2 === 'processing', completed: store.ui.b2 === 'success' }">
-              <div class="card-header" @click="toggleStep(2)">
-                <span class="step-collapse-icon">{{ collapsedSteps.has(2) ? "▸" : "▾" }}</span>
-                <span class="badge" :class="store.ui.b2" @click.stop="toggleStep(2)">{{ badgeText(store.ui.b2) }}</span>
-              </div>
+              <button type="button" class="card-header" @click="toggleStep(2)" :aria-expanded="!collapsedSteps.has(2)">
+                <span class="card-header-title"><span class="card-step-num">02</span><span class="card-header-copy"><b>SIMULATE</b><small>自生长推演</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(2) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b2">{{ badgeText(store.ui.b2) }}</span></span>
+              </button>
               <div v-show="!collapsedSteps.has(2)">
                 <div class="slider-row"><span class="lab">推演轮数</span><input type="range" min="1" max="200" v-model.number="store.rounds" /><span class="val">{{ store.rounds }}</span></div>
                 <div class="slider-row"><span class="lab">每轮焦点数</span><input type="range" min="1" max="200" v-model.number="store.perR" /><span class="val">{{ store.perR }}</span></div>
@@ -131,16 +127,14 @@
             </div>
 
             <!-- SIMULATE 输出：增长曲线紧随推演 -->
-            <div class="growth-panel growth-panel--phase" v-if="store.growth.length > 1"><GrowthPanel /></div>
+            <div class="growth-panel growth-panel--phase" v-if="store.growth.length > 1 && !collapsedSteps.has(2)"><GrowthPanel /></div>
 
-            <!-- Phase: OBSERVE -->
-            <div class="phase-title" id="workbench-phase-observe"><span class="phase-en">OBSERVE</span><span class="phase-cn">决策报告</span></div>
             <!-- Step 3 -->
             <div class="step-card" id="workbench-step-observe" :class="{ active: store.ui.b3 === 'processing', completed: store.ui.b3 === 'success' }">
-              <div class="card-header" @click="toggleStep(3)">
-                <span class="step-collapse-icon">{{ collapsedSteps.has(3) ? "▸" : "▾" }}</span>
-                <span class="badge" :class="store.ui.b3" @click.stop="toggleStep(3)">{{ badgeText(store.ui.b3) }}</span>
-              </div>
+              <button type="button" class="card-header" @click="toggleStep(3)" :aria-expanded="!collapsedSteps.has(3)">
+                <span class="card-header-title"><span class="card-step-num">03</span><span class="card-header-copy"><b>OBSERVE</b><small>决策报告</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(3) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b3">{{ badgeText(store.ui.b3) }}</span></span>
+              </button>
               <div v-show="!collapsedSteps.has(3)">
                 <button class="start-engine-btn" @click="genReportStream" :disabled="store.ui.reportRunning || !store.entities.length">
                   <span>{{ store.ui.reportRunning ? '生成中…' : '生成报告' }}</span><span>→</span>
@@ -149,7 +143,7 @@
             </div>
 
             <!-- OBSERVE 输出层：主报告 + 证据 + 追问 -->
-            <div class="observe-results" v-if="store.reportOutline || store.report || store.analysis.messages.length || store.causalChains.length || store.decisions.length || store.conflicts.length || store.communities.length">
+            <div class="observe-results" v-if="!collapsedSteps.has(3) && (store.reportOutline || store.report || store.analysis.messages.length || store.causalChains.length || store.decisions.length || store.conflicts.length || store.communities.length)">
               <div class="observe-results-header">
                 <div>
                   <span class="observe-kicker">OBSERVE OUTPUT</span>
@@ -259,14 +253,12 @@
             </div>
             </div>
             </div>
-            <!-- Phase: INTERVIEW（常驻） -->
-            <div class="phase-title phase-title--muted" id="workbench-phase-interview" v-if="store.ui.b2 === 'success'"><span class="phase-en">INTERVIEW</span><span class="phase-cn">随时问节点</span></div>
             <!-- Step 4: Interview 节点（与任意 agent 对话） -->
             <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
-              <div class="card-header" @click="toggleStep(4)">
-                <span class="step-collapse-icon">{{ collapsedSteps.has(4) ? "▸" : "▾" }}</span>
-                <span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'" @click.stop="toggleStep(4)">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span>
-              </div>
+              <button type="button" class="card-header" @click="toggleStep(4)" :aria-expanded="!collapsedSteps.has(4)">
+                <span class="card-header-title"><span class="card-step-num">04</span><span class="card-header-copy"><b>INTERVIEW</b><small>随时问节点</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(4) ? '+' : '−' }}</span><span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span></span>
+              </button>
               <div v-show="!collapsedSteps.has(4)">
                 <div v-if="!store.chat.target" class="entity-chat-select">
                   <span class="tag-label">选择对话实体</span>
@@ -296,7 +288,12 @@
               </div>
             </div>
 
-            <div class="section-divider"><span class="section-divider-label">SYSTEM / PERSISTENCE</span></div>
+            <button type="button" class="secondary-section-toggle" @click="systemPanelOpen = !systemPanelOpen" :aria-expanded="systemPanelOpen">
+              <span><b>SYSTEM / PERSISTENCE</b><small>日志、对比结果与保存记录</small></span>
+              <strong>{{ systemPanelOpen ? '−' : '+' }}</strong>
+            </button>
+            <div v-show="systemPanelOpen" class="system-tools">
+              <div class="section-divider"><span class="section-divider-label">SYSTEM / PERSISTENCE</span></div>
 
             <!-- 对比摘要 -->
             <div class="report-card comparison-summary" v-if="comparisonMode && store.comparison.baseline && store.comparison.withAssumptions">
@@ -345,6 +342,7 @@
             <div style="margin-top:16px;text-align:center" v-if="store.entities.length">
               <button class="btn-secondary" @click="saveExperiment">保存推演</button>
             </div>
+            </div>
 
           </div>
         </div>
@@ -377,8 +375,10 @@ const analysisInput = ref('');
 const analysisRef = ref(null);
 const activityRef = ref(null);
 const collapsedSections = ref(new Set());
-const collapsedSteps = ref(new Set());
+const collapsedSteps = ref(new Set([2, 3, 4]));
+const systemPanelOpen = ref(false);
 const comparisonMode = ref(false);
+const workflowStepNumbers = [1, 2, 3, 4];
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 const rightStyle = computed(() => viewMode.value === 'workbench' ? { width: '100%', opacity: 1 } : viewMode.value === 'graph' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
@@ -402,9 +402,11 @@ const workflowTargets = {
 };
 
 function focusWorkbenchTarget(key) {
+  const stepNumber = { whatIf: 1, simulate: 2, observe: 3, interview: 4 }[key];
+  if (stepNumber) expandStep(stepNumber);
   const target = document.getElementById(workflowTargets[key]);
   if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   target.classList.add('workflow-focus');
   window.setTimeout(() => target.classList.remove('workflow-focus'), 1200);
 }
@@ -500,10 +502,17 @@ function removeAssumption(id) {
   store.assumptions = store.assumptions.filter(a => a.id !== id);
 }
 
+function expandStep(num) {
+  collapsedSteps.value = new Set(workflowStepNumbers.filter(step => step !== num));
+}
+
 function toggleStep(num) {
-  const s = new Set(collapsedSteps.value);
-  if (s.has(num)) s.delete(num); else s.add(num);
-  collapsedSteps.value = s;
+  if (collapsedSteps.value.has(num)) expandStep(num);
+  else collapsedSteps.value = new Set(workflowStepNumbers);
+}
+function toggleComparison() {
+  comparisonMode.value = !comparisonMode.value;
+  systemPanelOpen.value = true;
 }
 function toggleSection(i) {
   const s = new Set(collapsedSections.value);
@@ -693,12 +702,13 @@ async function runDemoSequence() {
   pushLog('🎬 演示模式：自动展示推演全流程', 'ac');
   // 延迟让各阶段UI逐步展示
   await new Promise(r => setTimeout(r, 1200));
-  // 展开各阶段
-  collapsedSteps.value = new Set();
+  // 手风琴模式只展开当前演示阶段
+  expandStep(2);
   await new Promise(r => setTimeout(r, 800));
   // 展示报告区
   if (store.report) {
     collapsedSections.value = new Set();
+    expandStep(3);
     pushLog('📊 报告已就绪，可以追问全局分析师', 'ac');
   }
   await new Promise(r => setTimeout(r, 600));
@@ -706,6 +716,7 @@ async function runDemoSequence() {
   const demoNode = store.entities.find(e => e.id === 'price_sensitive');
   if (demoNode) {
     startChat(demoNode.id);
+    expandStep(4);
     pushLog('💬 已自动打开与「价格敏感客群」的访谈对话', 'ac');
   }
 }
@@ -735,5 +746,14 @@ watch(() => store.logs.length, async () => { await nextTick(); if (termRef.value
 watch(() => store.chat.messages.length, async () => { await nextTick(); if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight; });
 watch(() => store.analysis.messages.length, async () => { await nextTick(); if (analysisRef.value) analysisRef.value.scrollTop = analysisRef.value.scrollHeight; });
 watch(() => store.activityFeed.length, async () => { await nextTick(); if (activityRef.value) activityRef.value.scrollTop = activityRef.value.scrollHeight; });
+watch(() => store.ui.b1, (status, previous) => {
+  if (status === 'success' && previous !== 'success') expandStep(2);
+});
+watch(() => store.ui.b2, (status, previous) => {
+  if (status === 'success' && previous !== 'success') expandStep(3);
+});
+watch(() => store.ui.b3, (status, previous) => {
+  if (status === 'success' && previous !== 'success') expandStep(4);
+});
 onMounted(() => { refreshHealth(); refreshHistory(); });
 </script>
