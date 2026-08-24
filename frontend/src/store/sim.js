@@ -50,6 +50,13 @@ export const store = reactive({
 
   nodeInfo: null,
 
+  // KPI 数值预测曲线：每轮推演后 LLM 估算各 KPI 值
+  kpiCurves: {},  // { kpiName: [{ round, value, trend, confidence }] }
+  kpiPanelMode: 'kpi',  // 'kpi' | 'count'
+
+  // 对比模拟：基线 vs 干预
+  comparison: { active: false, baseline: null, withAssumptions: null },
+
   // OBSERVE 元层分析对话（问全局，区别于 Interview 问个体）
   analysis: { messages: [], running: false },
 
@@ -76,6 +83,8 @@ export function resetWorld() {
   store.lockedIds = [];
   store.analysis = { messages: [], running: false };
   store.nodeInfo = null;
+  store.kpiCurves = {};
+  store.comparison = { active: false, baseline: null, withAssumptions: null };
   store.ui.b1 = 'pending'; store.ui.b2 = 'pending'; store.ui.b3 = 'pending'; store.ui.b4 = 'pending';
   store.ui.step1Done = false;
 }

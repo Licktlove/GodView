@@ -3,7 +3,7 @@
     <header class="app-header" v-if="viewMode!=='home'">
       <div class="header-left">
         <div class="brand-block" @click="viewMode='home'">
-          <div class="brand-title">Dmall Future Market</div>
+          <img class="brand-logo" src="/brand-logo.svg" alt="公司 Logo" />
           <div class="brand-sub">让每一个经营决策，都先在未来发生一次。</div>
         </div>
       </div>
@@ -16,6 +16,9 @@
       </div>
       <div class="header-right" v-if="viewMode!=='home'">
         <span class="status-indicator" :class="statusClass"><span class="dot"></span>{{ statusText }}</span>
+        <button class="comparison-btn" v-if="store.comparison.baseline && store.comparison.withAssumptions" :class="{ active: comparisonMode }" @click="comparisonMode = !comparisonMode" title="对比模式：基线 vs 干预">
+          ⚖ 对比
+        </button>
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num-h">Step {{ currentStep }}/4</span>
@@ -25,7 +28,7 @@
     </header>
 
     <main class="content-area">
-      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" />
+      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @demo="runDemoSequence" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
         <GraphPanel @chat="onChatFromGraph" />
@@ -78,6 +81,14 @@
               </div>
             </div>
 
+            <!-- WHAT IF 输出：实体标签紧随世界构建 -->
+            <div class="tags-container tags-container--phase" v-if="store.entities.length">
+              <span class="tag-label">GENERATED ENTITIES ({{ store.entities.length }}) <span class="tag-hint" v-if="store.lockedIds.length">已锁定 {{ store.lockedIds.length }} 个主角常驻</span></span>
+              <div class="tags-list">
+                <span class="entity-tag" :class="{ locked: store.lockedIds.includes(e.id) }" v-for="e in store.entities" :key="e.id" @click="showNode(e)">{{ e.name }}<span class="t">{{ e.type }}</span><span class="lock-toggle" :class="{ on: store.lockedIds.includes(e.id) }" @click.stop="toggleLock(e.id)" :title="store.lockedIds.includes(e.id) ? '取消锁定' : '锁定为常驻主角'">{{ store.lockedIds.includes(e.id) ? '🔒' : '◌' }}</span></span>
+              </div>
+            </div>
+
             <!-- Phase: SIMULATE -->
             <div class="phase-title"><span class="phase-en">SIMULATE</span><span class="phase-cn">自生长推演</span></div>
             <!-- Step 2 -->
@@ -91,6 +102,9 @@
                 <div class="slider-row"><span class="lab">每轮焦点数</span><input type="range" min="1" max="200" v-model.number="store.perR" /><span class="val">{{ store.perR }}</span></div>
                 <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
                   <span>{{ store.ui.simRunning ? '推演中…' : '启动推演' }}</span><span>→</span>
+                </button>
+                <button v-if="store.assumptions.length && store.ui.step1Done" class="btn-secondary" style="display:block;margin:8px auto 0" @click="runComparison" :disabled="store.ui.simRunning">
+                  ⚖ 对比推演（基线 vs 假设）
                 </button>
                 <div class="activity-feed" v-if="store.activityFeed.length || store.ui.simRunning">
                   <div class="activity-header">
@@ -109,6 +123,9 @@
               </div>
             </div>
 
+            <!-- SIMULATE 输出：增长曲线紧随推演 -->
+            <div class="growth-panel growth-panel--phase" v-if="store.growth.length > 1"><GrowthPanel /></div>
+
             <!-- Phase: OBSERVE -->
             <div class="phase-title"><span class="phase-en">OBSERVE</span><span class="phase-cn">决策报告</span></div>
             <!-- Step 3 -->
@@ -124,8 +141,18 @@
               </div>
             </div>
 
-            <!-- Report (streaming sections) -->
-            <div class="report-card" v-if="store.reportOutline">
+            <!-- OBSERVE 输出层：主报告 + 证据 + 追问 -->
+            <div class="observe-results" v-if="store.reportOutline || store.report || store.analysis.messages.length || store.causalChains.length || store.decisions.length || store.conflicts.length || store.communities.length">
+              <div class="observe-results-header">
+                <div>
+                  <span class="observe-kicker">OBSERVE OUTPUT</span>
+                  <strong>报告与决策证据</strong>
+                </div>
+                <span class="observe-status" :class="store.ui.b3">{{ store.ui.b3 === 'success' ? 'READY' : store.ui.b3 === 'processing' ? 'BUILDING' : 'PENDING' }}</span>
+              </div>
+
+              <!-- Report (streaming sections) -->
+              <div class="report-card report-card--primary" v-if="store.reportOutline">
               <h3>{{ store.reportOutline.title }}</h3>
               <p style="font-size:12px;color:#999;margin-bottom:12px">{{ store.reportOutline.summary }}</p>
               <div v-for="(s, i) in store.reportOutline.sections || []" :key="i" class="report-section-item">
@@ -144,7 +171,8 @@
 
             </div>
 
-            <!-- Interview 元层：追问全局分析师 -->
+            <!-- 全局解读：报告完成后可继续追问 -->
+            <div class="observe-subsection-label">全局解读 · ASK THE ANALYST</div>
             <div class="report-card analysis-card" v-if="store.report || store.analysis.messages.length">
               <h3>追问全局分析师 <span class="analysis-hint">问整体局势，而非单个角色</span></h3>
               <div class="analysis-messages" ref="analysisRef">
@@ -160,6 +188,9 @@
                 <button class="btn-secondary" @click="sendAnalysis" :disabled="store.analysis.running || !analysisInput.trim()">追问</button>
               </div>
             </div>
+
+            <div class="observe-evidence-label">证据与行动 · EVIDENCE & ACTION</div>
+            <div class="observe-evidence-grid">
 
                         <!-- Feature 3: Causal Chains -->
             <div class="report-card" v-if="store.causalChains.length">
@@ -219,7 +250,9 @@
                 <span class="analytics-val">{{ store.bridgeNodes.map(id => entityName(id)).join('、') }}</span>
               </div>
             </div>
-<!-- Phase: INTERVIEW（常驻） -->
+            </div>
+            </div>
+            <!-- Phase: INTERVIEW（常驻） -->
             <div class="phase-title phase-title--muted" v-if="store.ui.b2 === 'success'"><span class="phase-en">INTERVIEW</span><span class="phase-cn">随时问节点</span></div>
             <!-- Step 4: Interview 节点（与任意 agent 对话） -->
             <div class="step-card" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
@@ -256,15 +289,31 @@
               </div>
             </div>
 
-            <!-- Entity tags -->
-            <div class="tags-container" v-if="store.entities.length">
-              <span class="tag-label">GENERATED ENTITIES ({{ store.entities.length }}) <span class="tag-hint" v-if="store.lockedIds.length">已锁定 {{ store.lockedIds.length }} 个主角常驻</span></span>
-              <div class="tags-list">
-                <span class="entity-tag" :class="{ locked: store.lockedIds.includes(e.id) }" v-for="e in store.entities" :key="e.id" @click="showNode(e)">{{ e.name }}<span class="t">{{ e.type }}</span><span class="lock-toggle" :class="{ on: store.lockedIds.includes(e.id) }" @click.stop="toggleLock(e.id)" :title="store.lockedIds.includes(e.id) ? '取消锁定' : '锁定为常驻主角'">{{ store.lockedIds.includes(e.id) ? '🔒' : '◌' }}</span></span>
+            <div class="section-divider"><span class="section-divider-label">SYSTEM / PERSISTENCE</span></div>
+
+            <!-- 对比摘要 -->
+            <div class="report-card comparison-summary" v-if="comparisonMode && store.comparison.baseline && store.comparison.withAssumptions">
+              <h3>⚖ 对比推演结果</h3>
+              <div class="comparison-grid">
+                <div class="comparison-col">
+                  <span class="comparison-label">基线（无假设）</span>
+                  <span class="comparison-stat">{{ store.comparison.baseline.entities.length }} 实体 / {{ store.comparison.baseline.edges.length }} 关系</span>
+                </div>
+                <div class="comparison-col">
+                  <span class="comparison-label">干预（带假设）</span>
+                  <span class="comparison-stat">{{ store.comparison.withAssumptions.entities.length }} 实体 / {{ store.comparison.withAssumptions.edges.length }} 关系</span>
+                </div>
+              </div>
+              <div class="comparison-kpi-diff" v-if="store.comparison.baseline.kpiCurves && store.comparison.withAssumptions.kpiCurves">
+                <span class="kpi-diff-title">KPI 差异：</span>
+                <span v-for="kpi in Object.keys(store.comparison.withAssumptions.kpiCurves)" :key="kpi" class="kpi-diff-item">
+                  {{ kpi }}：
+                  {{ lastKpiVal(store.comparison.baseline.kpiCurves[kpi])?.toFixed(2) || '?' }}
+                  →
+                  <span :class="kpiDiffClass(kpi)">{{ lastKpiVal(store.comparison.withAssumptions.kpiCurves[kpi])?.toFixed(2) || '?' }}</span>
+                </span>
               </div>
             </div>
-
-            <div class="growth-panel" v-if="store.growth.length > 1"><GrowthPanel /></div>
 
             <!-- Terminal -->
             <div class="terminal-section">
@@ -321,6 +370,7 @@ const analysisRef = ref(null);
 const activityRef = ref(null);
 const collapsedSections = ref(new Set());
 const collapsedSteps = ref(new Set());
+const comparisonMode = ref(false);
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 const rightStyle = computed(() => viewMode.value === 'workbench' ? { width: '100%', opacity: 1 } : viewMode.value === 'graph' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
@@ -446,6 +496,18 @@ function highlightCausalChain(idx) {
   store.causalChains.forEach((c, i) => { c._highlight = (i === idx) ? !c._highlight : false; });
 }
 
+// 对比模式辅助函数
+function lastKpiVal(curve) {
+  if (!curve || !curve.length) return null;
+  return curve[curve.length - 1].value;
+}
+function kpiDiffClass(kpi) {
+  const b = lastKpiVal(store.comparison.baseline?.kpiCurves?.[kpi]);
+  const w = lastKpiVal(store.comparison.withAssumptions?.kpiCurves?.[kpi]);
+  if (b == null || w == null) return '';
+  return w > b ? 'kpi-up' : w < b ? 'kpi-down' : '';
+}
+
 async function sendChat() {
   if (!chatInput.value.trim() || store.chat.running) return;
   const msg = chatInput.value.trim();
@@ -516,6 +578,83 @@ async function interactWithAnalyst(userMessage) {
 
 async function refreshHealth() { try { Object.assign(health, await fetchHealth()); } catch (e) { pushLog('后端未连接：' + e.message, 'err'); } }
 async function refreshHistory() { try { const { data } = await api.get('/api/experiments'); history.splice(0, history.length, ...data); } catch (e) {} }
+
+// 对比模拟：同时运行基线（无假设）和干预（带假设）
+async function runComparison() {
+  if (!store.ui.step1Done) { pushLog('请先生成实体', 'err'); return; }
+  store.comparison.active = true;
+  pushLog('▶ 对比模式：先跑基线（无假设），再跑干预（带假设）', 'ac');
+
+  // 保存当前状态
+  const savedAssumptions = [...store.assumptions];
+  const savedEntities = store.entities.map(e => ({ ...e }));
+  const savedEdges = store.edges.map(e => ({ ...e }));
+  const savedEpisodes = JSON.parse(JSON.stringify(store.episodes));
+
+  // 基线：无假设
+  store.assumptions = [];
+  store.entities = savedEntities.map(e => ({ ...e }));
+  store.edges = savedEdges.map(e => ({ ...e }));
+  store.episodes = JSON.parse(JSON.stringify(savedEpisodes));
+  store.activityFeed = [];
+  store.kpiCurves = {};
+  store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
+  await runSim();
+  store.comparison.baseline = {
+    entities: store.entities.map(e => ({ ...e })),
+    edges: store.edges.map(e => ({ ...e })),
+    growth: [...store.growth],
+    kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
+    report: store.report ? { ...store.report } : null,
+  };
+
+  // 干预：带假设
+  store.assumptions = [...savedAssumptions];
+  store.entities = savedEntities.map(e => ({ ...e }));
+  store.edges = savedEdges.map(e => ({ ...e }));
+  store.episodes = JSON.parse(JSON.stringify(savedEpisodes));
+  store.activityFeed = [];
+  store.kpiCurves = {};
+  store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
+  store.ui.b2 = 'pending';
+  await runSim();
+  store.comparison.withAssumptions = {
+    entities: store.entities.map(e => ({ ...e })),
+    edges: store.edges.map(e => ({ ...e })),
+    growth: [...store.growth],
+    kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
+    report: store.report ? { ...store.report } : null,
+  };
+
+  comparisonMode.value = true;
+  pushLog('✓ 对比模拟完成：切换到对比视图查看差异', 'ok');
+}
+
+// 一键演示流程
+async function runDemoSequence() {
+  viewMode.value = 'split';
+  await nextTick();
+  loadDemo();
+  pushLog('🎬 演示模式：自动展示推演全流程', 'ac');
+  // 延迟让各阶段UI逐步展示
+  await new Promise(r => setTimeout(r, 1200));
+  // 展开各阶段
+  collapsedSteps.value = new Set();
+  await new Promise(r => setTimeout(r, 800));
+  // 展示报告区
+  if (store.report) {
+    collapsedSections.value = new Set();
+    pushLog('📊 报告已就绪，可以追问全局分析师', 'ac');
+  }
+  await new Promise(r => setTimeout(r, 600));
+  // 自动打开与价格敏感客群的对话
+  const demoNode = store.entities.find(e => e.id === 'price_sensitive');
+  if (demoNode) {
+    startChat(demoNode.id);
+    pushLog('💬 已自动打开与「价格敏感客群」的访谈对话', 'ac');
+  }
+}
+
 async function saveExperiment() {
   if (!store.entities.length) return;
   try {

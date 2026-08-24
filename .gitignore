@@ -14,3 +14,7 @@ backend/data/experiments/*.json
 # 系统/编辑器
 .DS_Store
 *.log
+
+# IDE / Agent 工作目录（不进仓库）
+.claude/
+.workbuddy/

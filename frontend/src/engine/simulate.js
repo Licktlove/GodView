@@ -4,6 +4,7 @@ import { computeImportance } from './importance';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 import { getScenario } from '../scenarios';
 import { typeColorFor } from './palette';
+import { predictKPIs } from './kpi';
 
 export { computeImportance, typeColorFor };
 
@@ -48,6 +49,7 @@ export async function genEntities() {
   store.causalChains = []; store.decisions = []; store.conflicts = [];
   store.communities = []; store.bridgeNodes = [];
   store.activityFeed = []; store.simRound = 0;
+  store.kpiCurves = {};
   try {
     const sys = P('sysGen');
     const asm = assumptionsText();
@@ -285,6 +287,8 @@ export async function runSim() {
     let stable = 0;
     for (let r = 1; r <= total; r++) {
       const added = await runRound(r, total);
+      // KPI 数值预测：每轮推演后估算关键指标
+      predictKPIs(r).catch(() => {});
       if (added === 0) stable++; else stable = 0;
       if (r >= 3 && stable >= 2) {
         pushLog(`✓ 连续 ${stable} 轮无新关系，世界在第 ${r} 轮达到稳态，提前收敛`, 'ok');
