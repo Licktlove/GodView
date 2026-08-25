@@ -73,7 +73,7 @@
                     </span>
                   </div>
                 </div>
-                <div class="slider-row"><span class="lab">实体数量</span><input type="range" min="4" max="999" v-model.number="store.entN" /><span class="val">{{ store.entN }}</span></div>
+                <div class="slider-row"><span class="lab">实体数量</span><div class="number-stepper" aria-label="实体数量"><button type="button" class="stepper-btn" @click="adjustNumber('entN', -1, 4, 999)" aria-label="减少实体数量">−</button><output class="stepper-value">{{ store.entN }}</output><button type="button" class="stepper-btn" @click="adjustNumber('entN', 1, 4, 999)" aria-label="增加实体数量">+</button></div></div>
                 <button class="start-engine-btn" @click="genEntities" :disabled="store.ui.genRunning">
                   <span>{{ store.ui.genRunning ? '生成中…' : '生成实体' }}</span><span>→</span>
                 </button>
@@ -101,8 +101,8 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(2) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b2">{{ badgeText(store.ui.b2) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(2)">
-                <div class="slider-row"><span class="lab">推演轮数</span><input type="range" min="1" max="200" v-model.number="store.rounds" /><span class="val">{{ store.rounds }}</span></div>
-                <div class="slider-row"><span class="lab">每轮焦点数</span><input type="range" min="1" max="200" v-model.number="store.perR" /><span class="val">{{ store.perR }}</span></div>
+                <div class="slider-row"><span class="lab">推演轮数</span><div class="number-stepper" aria-label="推演轮数"><button type="button" class="stepper-btn" @click="adjustNumber('rounds', -1, 1, 200)" aria-label="减少推演轮数">−</button><output class="stepper-value">{{ store.rounds }}</output><button type="button" class="stepper-btn" @click="adjustNumber('rounds', 1, 1, 200)" aria-label="增加推演轮数">+</button></div></div>
+                <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @click="adjustNumber('perR', -1, 1, 200)" aria-label="减少每轮焦点数">−</button><output class="stepper-value">{{ store.perR }}</output><button type="button" class="stepper-btn" @click="adjustNumber('perR', 1, 1, 200)" aria-label="增加每轮焦点数">+</button></div></div>
                 <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
                   <span>{{ store.ui.simRunning ? '推演中…' : '启动推演' }}</span><span>→</span>
                 </button>
@@ -500,6 +500,11 @@ function addAssumption() {
 }
 function removeAssumption(id) {
   store.assumptions = store.assumptions.filter(a => a.id !== id);
+}
+
+function adjustNumber(field, delta, min, max) {
+  const current = Number(store[field]) || min;
+  store[field] = Math.min(max, Math.max(min, current + delta));
 }
 
 function expandStep(num) {

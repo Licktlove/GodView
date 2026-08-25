@@ -310,6 +310,12 @@ input:checked + .slider:before { transform: translateX(14px); }
 .workbench-panel .slider-row .lab, .workbench-panel .slider-row .val { font-size: 14px; }
 .workbench-panel .slider-row .lab { min-width: 84px; }
 .workbench-panel .slider-row .val { min-width: 32px; }
+.number-stepper { display: inline-flex; align-items: center; justify-content: space-between; min-width: 148px; height: 38px; border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); background: var(--canvas); overflow: hidden; }
+.stepper-btn { display: grid; place-items: center; width: 42px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 22px; font-weight: 500; line-height: 1; transition: background 0.15s, color 0.15s; }
+.stepper-btn:hover { background: rgba(37,109,157,0.1); color: var(--ink-deep); }
+.stepper-btn:active { background: rgba(37,109,157,0.18); }
+.stepper-btn:focus-visible { outline: 2px solid var(--primary-light); outline-offset: -3px; }
+.stepper-value { display: grid; place-items: center; min-width: 54px; height: 100%; border-right: 1px solid var(--hairline); border-left: 1px solid var(--hairline); color: var(--ink); font: 700 16px var(--font-mono); text-align: center; }
 .workbench-panel .start-engine-btn { padding: 12px; font-size: 16px; }
 .workbench-panel .btn-secondary { padding: 8px 14px; font-size: 14px; }
 .workbench-panel .stats-grid { margin-bottom: 14px; }
@@ -390,7 +396,6 @@ input:checked + .slider:before { transform: translateX(14px); }
 
 .slider-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .slider-row .lab { font-size: 12px; color: var(--body); min-width: 75px; }
-.slider-row input[type="range"] { flex: 1; accent-color: var(--ink); }
 .slider-row .val { font-weight: 700; font-size: 13px; min-width: 28px; text-align: right; color: var(--ink); }
 
 /* Start engine button — 靛紫渐变 */
@@ -510,6 +515,9 @@ input:checked + .slider:before { transform: translateX(14px); }
   .step-card > div:not(.card-header) { padding: 0 12px 14px; }
   .workbench-panel .assumption-input-row, .workbench-panel .analysis-input-row, .workbench-panel .chat-input-row { flex-wrap: wrap; }
   .workbench-panel .assumption-input-row input, .workbench-panel .analysis-input-row input, .workbench-panel .chat-input-row input { min-width: 0; }
+  .number-stepper { min-width: 132px; }
+  .stepper-btn { width: 38px; }
+  .stepper-value { min-width: 46px; }
 }
 
 @media (max-width: 600px) {
