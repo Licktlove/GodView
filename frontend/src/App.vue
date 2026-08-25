@@ -254,10 +254,10 @@
             </div>
             </div>
             <!-- Step 4: Interview 节点（与任意 agent 对话） -->
-            <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
+            <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running || !!store.chat.target, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
               <button type="button" class="card-header" @click="toggleStep(4)" :aria-expanded="!collapsedSteps.has(4)">
                 <span class="card-header-title"><span class="card-step-num">04</span><span class="card-header-copy"><b>INTERVIEW</b><small>随时问节点</small></span></span>
-                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(4) ? '+' : '−' }}</span><span class="badge" :class="store.chat.messages.length > 0 ? 'success' : 'pending'">{{ store.chat.messages.length > 0 ? 'Active' : 'Pending' }}</span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(4) ? '+' : '−' }}</span><span class="badge" :class="store.chat.messages.length > 0 ? 'success' : store.chat.target ? 'processing' : 'pending'">{{ store.chat.messages.length > 0 || store.chat.target ? 'Active' : 'Pending' }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(4)">
                 <div v-if="!store.chat.target" class="entity-chat-select">
@@ -270,19 +270,30 @@
                 </div>
                 <div v-else class="chat-panel">
                   <div class="chat-header">
-                    <span>💬 与「{{ chatTargetName }}」对话</span>
-                    <button class="detail-close" @click="endChat">×</button>
+                    <div class="chat-identity">
+                      <span class="chat-icon" aria-hidden="true">◉</span>
+                      <span><b>节点对话</b><small>与「{{ chatTargetName }}」 · {{ chatTargetType }}</small></span>
+                    </div>
+                    <div class="chat-header-meta"><span class="chat-live"><i></i> LIVE</span><button class="detail-close" @click="endChat" aria-label="关闭节点对话">×</button></div>
                   </div>
                   <div class="chat-messages" ref="chatRef">
+                    <div v-if="!store.chat.messages.length && !store.chat.running" class="chat-empty">
+                      <span class="chat-empty-icon">✦</span>
+                      <strong>开始探索这个节点</strong>
+                      <p>可以询问它的当前状态、影响因素或决策传导路径。</p>
+                      <div class="chat-suggestions">
+                        <button v-for="question in chatSuggestions" :key="question" type="button" @click="chatInput = question; sendChat()">{{ question }}</button>
+                      </div>
+                    </div>
                     <div v-for="(m, i) in store.chat.messages" :key="i" class="chat-msg" :class="m.role">
                       <span class="chat-role">{{ m.role === 'user' ? '我' : chatTargetName }}</span>
-                      <span class="chat-text">{{ m.content }}</span>
+                      <span class="chat-text" v-html="renderMarkdown(m.content, '')"></span>
                     </div>
-                    <div v-if="store.chat.running" class="chat-msg assistant"><span class="chat-role">{{ chatTargetName }}</span><span class="chat-text">思考中…</span></div>
+                    <div v-if="store.chat.running" class="chat-msg assistant"><span class="chat-role">{{ chatTargetName }}</span><span class="chat-text chat-thinking"><i></i><i></i><i></i><span>正在思考</span></span></div>
                   </div>
                   <div class="chat-input-row">
-                    <input class="chat-input" v-model="chatInput" placeholder="输入问题…" @keyup.enter="sendChat" :disabled="store.chat.running" />
-                    <button class="btn-secondary" @click="sendChat" :disabled="store.chat.running || !chatInput.trim()">发送</button>
+                    <div class="chat-input-wrap"><input class="chat-input" v-model="chatInput" placeholder="输入关于这个节点的问题…" @keyup.enter="sendChat" :disabled="store.chat.running" /><span>Enter 发送</span></div>
+                    <button class="chat-send" @click="sendChat" :disabled="store.chat.running || !chatInput.trim()"><span>发送</span><b>→</b></button>
                   </div>
                 </div>
               </div>
@@ -393,6 +404,8 @@ const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '
 const statusClass = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'processing' : 'ready');
 const statusText = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'Processing' : 'Ready');
 const chatTargetName = computed(() => store.entities.find(e => e.id === store.chat.target)?.name || '');
+const chatTargetType = computed(() => store.entities.find(e => e.id === store.chat.target)?.type || '实体节点');
+const chatSuggestions = ['这个节点当前是什么状态？', '它会影响哪些节点？', '为什么它是关键节点？'];
 
 const workflowTargets = {
   whatIf: 'workbench-step-what-if',
@@ -566,11 +579,32 @@ function stripDuplicateSectionHeading(text, sectionTitle) {
 function renderMarkdown(text, sectionTitle) {
   const content = stripDuplicateSectionHeading(text, sectionTitle);
   if (!content) return '';
-  return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\n/g, '<br>');
+  const escapeHtml = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (value) => escapeHtml(value)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  const lines = content.split(/\r?\n/);
+  const html = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) { html.push('</ul>'); inList = false; }
+  };
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) { closeList(); return; }
+    const heading = trimmed.match(/^#{2,3}\s+(.+)$/);
+    const item = trimmed.match(/^[-*]\s+(.+)$/);
+    if (heading) { closeList(); html.push(`<h3>${inline(heading[1])}</h3>`); return; }
+    if (item) {
+      if (!inList) { html.push('<ul>'); inList = true; }
+      html.push(`<li>${inline(item[1])}</li>`);
+      return;
+    }
+    closeList();
+    html.push(`<p>${inline(trimmed)}</p>`);
+  });
+  closeList();
+  return html.join('');
 }
 
 function showNode(e) {

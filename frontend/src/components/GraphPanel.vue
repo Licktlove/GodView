@@ -208,40 +208,52 @@ function computeEmphasisSet() {
 function applyEmphasis() {
   if (!node || !link) return;
   const set = computeEmphasisSet();
-  const empty = set.size === 0;
+  const chatTargetId = store.chat.target;
+  const focusSet = new Set(set);
+  if (chatTargetId) focusSet.add(chatTargetId);
+  const empty = focusSet.size === 0;
   const conflictEdgeSet = new Set();
   localConflicts.forEach(c => { conflictEdgeSet.add(c.edge1Idx); conflictEdgeSet.add(c.edge2Idx); });
 
   node.selectAll('circle:not(.bridge-ring)')
-    .attr('opacity', n => empty ? 1 : (set.has(n.id) ? 1 : 0.12))
-    .attr('stroke-width', n => empty ? (n._new ? 3 : 1.5) : (set.has(n.id) ? 3 : 1.5))
+    .attr('opacity', n => empty ? 1 : (focusSet.has(n.id) ? 1 : 0.12))
+    .attr('stroke-width', n => chatTargetId === n.id ? 5 : (empty ? (n._new ? 3 : 1.5) : (focusSet.has(n.id) ? 3 : 1.5)))
     .attr('stroke', n => empty
-      ? (n._new ? '#FF4500' : '#FFF')
-      : (set.has(n.id) ? 'var(--ink)' : (n._new ? '#FF4500' : '#FFF')));
+      ? (chatTargetId === n.id ? '#F59E0B' : (n._new ? '#FF4500' : '#FFF'))
+      : (chatTargetId === n.id ? '#F59E0B' : (focusSet.has(n.id) ? 'var(--ink)' : (n._new ? '#FF4500' : '#FFF'))));
 
   node.selectAll('text')
-    .attr('opacity', n => empty ? 1 : (set.has(n.id) ? 1 : 0.1));
+    .attr('opacity', n => empty ? 1 : (focusSet.has(n.id) ? 1 : 0.1))
+    .attr('font-weight', n => chatTargetId === n.id ? '700' : null);
 
   link
     .attr('opacity', l => {
       if (empty) return l._new ? 0.6 : 0.35;
-      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? 1 : 0.05;
+      const touchesChatTarget = chatTargetId && (idOf(l.source) === chatTargetId || idOf(l.target) === chatTargetId);
+      if (touchesChatTarget) return 0.9;
+      return (focusSet.has(idOf(l.source)) && focusSet.has(idOf(l.target))) ? 1 : 0.05;
     })
     .attr('stroke-width', l => {
       if (empty) return l._new ? 1.5 : 1;
-      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? 2.5 : 1;
+      const touchesChatTarget = chatTargetId && (idOf(l.source) === chatTargetId || idOf(l.target) === chatTargetId);
+      if (touchesChatTarget) return 2.5;
+      return (focusSet.has(idOf(l.source)) && focusSet.has(idOf(l.target))) ? 2.5 : 1;
     })
     .attr('stroke', l => {
       if (conflictEdgeSet.has(l.__idx)) return '#ff3b30';
       if (empty) return 'rgba(15,0,0,0.12)';
-      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? '#F43F5E' : 'rgba(15,0,0,0.12)';
+      const touchesChatTarget = chatTargetId && (idOf(l.source) === chatTargetId || idOf(l.target) === chatTargetId);
+      if (touchesChatTarget) return '#F59E0B';
+      return (focusSet.has(idOf(l.source)) && focusSet.has(idOf(l.target))) ? '#F43F5E' : 'rgba(15,0,0,0.12)';
     })
     .attr('stroke-dasharray', l => conflictEdgeSet.has(l.__idx) ? '5 3' : null);
 
   if (linkLabels) {
     linkLabels.attr('opacity', l => {
       if (empty) return 1;
-      return (set.has(idOf(l.source)) && set.has(idOf(l.target))) ? 1 : 0;
+      const touchesChatTarget = chatTargetId && (idOf(l.source) === chatTargetId || idOf(l.target) === chatTargetId);
+      if (touchesChatTarget) return 1;
+      return (focusSet.has(idOf(l.source)) && focusSet.has(idOf(l.target))) ? 1 : 0;
     });
   }
 }
@@ -568,6 +580,7 @@ watch(() => [store.entities.length, store.edges.length], () => nextTick(renderGr
 watch(() => store.episodes, () => { /* re-render for episode display */ }, { deep: true });
 watch(() => store.causalChains, () => { if (node) applyEmphasis(); }, { deep: true });
 watch(searchQuery, () => { if (node) applyEmphasis(); });
+watch(() => store.chat.target, () => { if (node) applyEmphasis(); });
 </script>
 
 <style scoped>
