@@ -73,7 +73,7 @@
                     </span>
                   </div>
                 </div>
-                <div class="slider-row"><span class="lab">实体数量</span><div class="number-stepper" role="group" aria-label="实体数量"><button type="button" class="stepper-btn" @click.stop="adjustNumber('entN', -1, 4, 999)" :disabled="store.entN <= 4" aria-label="减少实体数量">−</button><output class="stepper-value" aria-live="polite">{{ store.entN }}</output><button type="button" class="stepper-btn" @click.stop="adjustNumber('entN', 1, 4, 999)" :disabled="store.entN >= 999" aria-label="增加实体数量">+</button></div></div>
+                <div class="slider-row"><span class="lab">实体数量</span><div class="number-stepper" role="group" aria-label="实体数量"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('entN', -1, 4, 999, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('entN', -1, 4, 999)" @keydown.space.prevent="adjustNumber('entN', -1, 4, 999)" :disabled="store.entN <= 4" aria-label="减少实体数量">−</button><input class="stepper-input" type="number" min="4" max="999" inputmode="numeric" v-model.number="store.entN" @blur="normalizeNumber('entN', 4, 999)" @keydown.enter.prevent="normalizeNumber('entN', 4, 999)" aria-label="实体数量" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('entN', 1, 4, 999, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('entN', 1, 4, 999)" @keydown.space.prevent="adjustNumber('entN', 1, 4, 999)" :disabled="store.entN >= 999" aria-label="增加实体数量">+</button></div></div>
                 <button class="start-engine-btn" @click="genEntities" :disabled="store.ui.genRunning">
                   <span>{{ store.ui.genRunning ? '生成中…' : '生成实体' }}</span><span>→</span>
                 </button>
@@ -101,8 +101,8 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(2) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b2">{{ badgeText(store.ui.b2) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(2)">
-                <div class="slider-row"><span class="lab">推演轮数</span><div class="number-stepper" role="group" aria-label="推演轮数"><button type="button" class="stepper-btn" @click.stop="adjustNumber('rounds', -1, 1, 200)" :disabled="store.rounds <= 1" aria-label="减少推演轮数">−</button><output class="stepper-value" aria-live="polite">{{ store.rounds }}</output><button type="button" class="stepper-btn" @click.stop="adjustNumber('rounds', 1, 1, 200)" :disabled="store.rounds >= 200" aria-label="增加推演轮数">+</button></div></div>
-                <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" role="group" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @click.stop="adjustNumber('perR', -1, 1, 200)" :disabled="store.perR <= 1" aria-label="减少每轮焦点数">−</button><output class="stepper-value" aria-live="polite">{{ store.perR }}</output><button type="button" class="stepper-btn" @click.stop="adjustNumber('perR', 1, 1, 200)" :disabled="store.perR >= 200" aria-label="增加每轮焦点数">+</button></div></div>
+                <div class="slider-row"><span class="lab">推演轮数</span><div class="number-stepper" role="group" aria-label="推演轮数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', -1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', -1, 1, 200)" :disabled="store.rounds <= 1" aria-label="减少推演轮数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.rounds" @blur="normalizeNumber('rounds', 1, 200)" @keydown.enter.prevent="normalizeNumber('rounds', 1, 200)" aria-label="推演轮数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', 1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', 1, 1, 200)" :disabled="store.rounds >= 200" aria-label="增加推演轮数">+</button></div></div>
+                <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" role="group" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', -1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', -1, 1, 200)" :disabled="store.perR <= 1" aria-label="减少每轮焦点数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.perR" @blur="normalizeNumber('perR', 1, 200)" @keydown.enter.prevent="normalizeNumber('perR', 1, 200)" aria-label="每轮焦点数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', 1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', 1, 1, 200)" :disabled="store.perR >= 200" aria-label="增加每轮焦点数">+</button></div></div>
                 <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
                   <span>{{ store.ui.simRunning ? '推演中…' : '启动推演' }}</span><span>→</span>
                 </button>
@@ -353,7 +353,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { store, pushLog, resetWorld, toggleLock } from './store/sim';
 import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt } from './engine/simulate';
 import { loadDemo } from './engine/synthetic';
@@ -506,6 +506,28 @@ function adjustNumber(field, delta, min, max) {
   const current = Number(store[field]) || min;
   store[field] = Math.min(max, Math.max(min, current + delta));
 }
+
+let adjustDelay = null;
+let adjustInterval = null;
+function startAdjust(field, delta, min, max, event) {
+  stopAdjust();
+  adjustNumber(field, delta, min, max);
+  event.currentTarget?.setPointerCapture?.(event.pointerId);
+  adjustDelay = window.setTimeout(() => {
+    adjustInterval = window.setInterval(() => adjustNumber(field, delta, min, max), 75);
+  }, 360);
+}
+function stopAdjust() {
+  if (adjustDelay) window.clearTimeout(adjustDelay);
+  if (adjustInterval) window.clearInterval(adjustInterval);
+  adjustDelay = null;
+  adjustInterval = null;
+}
+function normalizeNumber(field, min, max) {
+  const value = Number(store[field]);
+  store[field] = Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
+}
+function noop() {}
 
 function expandStep(num) {
   collapsedSteps.value = new Set(workflowStepNumbers.filter(step => step !== num));
@@ -761,4 +783,5 @@ watch(() => store.ui.b3, (status, previous) => {
   if (status === 'success' && previous !== 'success') expandStep(4);
 });
 onMounted(() => { refreshHealth(); refreshHistory(); });
+onBeforeUnmount(stopAdjust);
 </script>
