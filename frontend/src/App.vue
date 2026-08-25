@@ -451,6 +451,11 @@ function initializeWorld() {
 
 function confirmInitialize() {
   initConfirmOpen.value = false;
+  const preservedLogs = [...store.logs];
+  const preservedComparison = JSON.parse(JSON.stringify(store.comparison));
+  const preservedSystemPanelOpen = systemPanelOpen.value;
+  const preservedComparisonMode = comparisonMode.value;
+
   resetWorld();
   const defaults = store.scenario.defaultParams || {};
   store.seed = '';
@@ -458,14 +463,15 @@ function confirmInitialize() {
   store.entN = defaults.entN || 12;
   store.rounds = defaults.rounds || 6;
   store.perR = defaults.perR || 6;
-  store.logs = [];
+  store.logs = preservedLogs;
+  store.comparison = preservedComparison;
   chatInput.value = '';
   assumptionInput.value = '';
   analysisInput.value = '';
   collapsedSections.value = new Set();
   collapsedSteps.value = new Set([2, 3, 4]);
-  systemPanelOpen.value = false;
-  comparisonMode.value = false;
+  systemPanelOpen.value = preservedSystemPanelOpen;
+  comparisonMode.value = preservedComparisonMode;
   pushLog('已初始化当前场景，等待输入经营问题。', 'ac');
   nextTick(() => document.querySelector('.scroll-container')?.scrollTo({ top: 0, behavior: 'smooth' }));
 }
