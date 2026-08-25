@@ -251,8 +251,22 @@ input, textarea { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .graph-container { flex: 1; position: relative; overflow: hidden; background: var(--surface-soft); }
 .graph-svg { width: 100%; height: 100%; display: block; }
-.graph-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--ash); }
-.empty-icon { font-size: 40px; margin-bottom: 12px; color: var(--hairline-strong); }
+.graph-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 32px; color: var(--ash); text-align: center; background: radial-gradient(circle at 50% 44%, rgba(78,166,223,0.08), transparent 34%); }
+.empty-icon { display: grid; grid-template-columns: repeat(2, 12px); gap: 5px; width: 40px; height: 40px; margin-bottom: 16px; transform: rotate(45deg); }
+.empty-icon span { width: 12px; height: 12px; border: 1px solid var(--hairline-strong); background: rgba(78,166,223,0.12); }
+.empty-icon span:nth-child(2), .empty-icon span:nth-child(3) { background: rgba(78,166,223,0.28); }
+.graph-state-kicker { color: var(--ink); font: 10px var(--font-mono); letter-spacing: 0.18em; }
+.graph-state h2 { margin: 9px 0 8px; color: var(--ink-deep); font-size: 24px; font-weight: 700; }
+.graph-state p { max-width: 390px; margin: 0; color: var(--body); font-size: 14px; line-height: 1.7; }
+.graph-onboarding-steps { display: flex; align-items: center; gap: 10px; margin: 22px 0 20px; }
+.graph-onboarding-steps > div { display: flex; flex-direction: column; gap: 4px; min-width: 66px; }
+.graph-onboarding-steps b { color: var(--ink); font: 700 13px var(--font-mono); }
+.graph-onboarding-steps span { color: var(--body); font-size: 12px; }
+.graph-onboarding-steps i { width: 28px; height: 1px; background: var(--hairline-strong); }
+.graph-start-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 22px; min-width: 174px; padding: 10px 14px; border: 1px solid var(--primary); border-radius: var(--radius-md); background: linear-gradient(135deg, var(--primary), var(--ink-deep)); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(37,109,157,0.18); }
+.graph-start-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.graph-start-btn b { font-size: 17px; }
+.graph-state small { margin-top: 10px; color: var(--ash); font-size: 11px; }
 .graph-building-hint {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--canvas);
   border: 1px solid var(--hairline); padding: 6px 14px; font-size: 12px; color: var(--body); border-radius: var(--radius-sm);
@@ -315,6 +329,8 @@ input:checked + .slider:before { transform: translateX(14px); }
 }
 .step-card.active { border-color: var(--ink); }
 .step-card.completed { border-color: var(--success); }
+.step-card.locked { border-color: var(--hairline); }
+.step-card.locked .card-header { background: var(--surface-soft); }
 .step-card { scroll-margin-top: 16px; }
 .step-card.workflow-focus { animation: workbench-focus 1.2s ease-out; }
 @keyframes workbench-focus {
@@ -350,6 +366,8 @@ input:checked + .slider:before { transform: translateX(14px); }
 .badge.processing { background: var(--ink); color: var(--on-dark); }
 .badge.success { background: var(--success); color: var(--ink); }
 .step-card > div:not(.card-header) { padding: 0 16px 16px; }
+.step-lock-hint { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; padding: 9px 10px; border: 1px dashed var(--hairline); border-radius: var(--radius-sm); background: rgba(37,109,157,0.04); color: var(--mute); font-size: 13px; }
+.step-lock-hint span:first-child { color: var(--ash); font-size: 15px; }
 
 .api-note { font-size: 11px; color: var(--ash); margin-bottom: 6px; }
 .description { font-size: 13px; color: var(--body); line-height: 1.5; margin-bottom: 10px; }
@@ -482,6 +500,8 @@ input:checked + .slider:before { transform: translateX(14px); }
 .stat-card:last-child { border-right: none; }
 .stat-value { display: block; font-size: 20px; font-weight: 700; color: var(--ink); }
 .stat-label { font-size: 10px; color: var(--mute); margin-top: 2px; display: block; }
+.stat-context { display: block; margin-top: 4px; color: var(--ash); font-size: 11px; }
+.stat-card.empty .stat-value { color: var(--mute); }
 
 /* Entity tags */
 .tags-container { margin-top: 10px; }

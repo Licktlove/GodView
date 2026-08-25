@@ -31,8 +31,21 @@
         ⚡ 推演进行中，图谱实时自生长…
       </div>
       <div v-if="!store.entities.length" class="graph-state">
-        <div class="empty-icon">❖</div>
-        <p style="font-size:13px;color:#999">运行推演后，图谱将逐轮生长</p>
+        <div class="empty-icon" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <span class="graph-state-kicker">WORLD INITIALIZATION</span>
+        <h2>从一个经营问题开始</h2>
+        <p>输入一个经营场景，系统将自动抽取实体、关系，并生成可推演的知识图谱。</p>
+        <div class="graph-onboarding-steps" aria-label="构建流程">
+          <div><b>01</b><span>输入场景</span></div>
+          <i aria-hidden="true"></i>
+          <div><b>02</b><span>生成实体</span></div>
+          <i aria-hidden="true"></i>
+          <div><b>03</b><span>启动推演</span></div>
+        </div>
+        <button type="button" class="graph-start-btn" @click="$emit('start')">
+          <span>开始构建世界</span><b>→</b>
+        </button>
+        <small>也可以从右侧 WHAT IF 开始</small>
       </div>
 
       <!-- Node detail panel -->
@@ -114,7 +127,7 @@ import { store } from '../store/sim';
 import { computeImportance, typeColorFor } from '../engine/simulate';
 import { detectCommunities, detectBridgeNodes, detectConflicts, shortestPath } from '../engine/analytics';
 
-defineEmits(['chat']);
+defineEmits(['chat', 'start']);
 
 const NODE_R_MIN = 6;
 const NODE_R_MAX = 26;

@@ -41,22 +41,22 @@
       <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" @phase="openWorkflowPhase" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
-        <GraphPanel @chat="onChatFromGraph" />
+        <GraphPanel @chat="onChatFromGraph" @start="startWorldBuild" />
       </div>
       <div class="panel-wrapper right" :style="rightStyle">
         <div class="workbench-panel">
           <div class="scroll-container">
 
-            <div class="stats-grid" v-if="store.entities.length">
-              <div class="stat-card"><span class="stat-value">{{ store.entities.length }}</span><span class="stat-label">实体</span></div>
-              <div class="stat-card"><span class="stat-value">{{ store.edges.length }}</span><span class="stat-label">关系</span></div>
-              <div class="stat-card"><span class="stat-value">{{ store.growth.length - 1 }}</span><span class="stat-label">轮次</span></div>
+            <div class="stats-grid">
+              <div class="stat-card" :class="{ empty: !store.entities.length }"><span class="stat-value">{{ store.entities.length }}</span><span class="stat-label">实体</span><span class="stat-context">{{ store.entities.length ? '已生成' : '等待生成' }}</span></div>
+              <div class="stat-card" :class="{ empty: !store.edges.length }"><span class="stat-value">{{ store.edges.length }}</span><span class="stat-label">关系</span><span class="stat-context">{{ store.edges.length ? '已建立' : '尚未建立' }}</span></div>
+              <div class="stat-card" :class="{ empty: store.growth.length <= 1 }"><span class="stat-value">{{ Math.max(0, store.growth.length - 1) }}</span><span class="stat-label">轮次</span><span class="stat-context">{{ store.growth.length > 1 ? '已推演' : '等待启动' }}</span></div>
             </div>
 
             <!-- Step 1 -->
             <div class="step-card" id="workbench-step-what-if" :class="{ active: store.ui.b1 === 'processing', completed: store.ui.b1 === 'success' }">
               <button type="button" class="card-header" @click="toggleStep(1)" :aria-expanded="!collapsedSteps.has(1)">
-                <span class="card-header-title"><span class="card-step-num">01</span><span class="card-header-copy"><b>WHAT IF</b><small>构建世界</small></span></span>
+                <span class="card-header-title"><span class="card-step-num">01</span><span class="card-header-copy"><b>WHAT IF</b><small>{{ store.ui.step1Done ? '世界已建立' : '输入经营问题 · 从这里开始' }}</small></span></span>
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(1) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b1">{{ badgeText(store.ui.b1) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(1)">
@@ -104,6 +104,7 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(2) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b2">{{ badgeText(store.ui.b2) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(2)">
+                <div v-if="!store.ui.step1Done" class="step-lock-hint"><span>○</span><span>完成 WHAT IF 后解锁推演</span></div>
                 <div class="slider-row"><span class="lab">推演轮数</span><div class="number-stepper" role="group" aria-label="推演轮数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', -1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', -1, 1, 200)" :disabled="store.rounds <= 1" aria-label="减少推演轮数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.rounds" @blur="normalizeNumber('rounds', 1, 200)" @keydown.enter.prevent="normalizeNumber('rounds', 1, 200)" aria-label="推演轮数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', 1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', 1, 1, 200)" :disabled="store.rounds >= 200" aria-label="增加推演轮数">+</button></div></div>
                 <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" role="group" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', -1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', -1, 1, 200)" :disabled="store.perR <= 1" aria-label="减少每轮焦点数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.perR" @blur="normalizeNumber('perR', 1, 200)" @keydown.enter.prevent="normalizeNumber('perR', 1, 200)" aria-label="每轮焦点数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', 1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', 1, 1, 200)" :disabled="store.perR >= 200" aria-label="增加每轮焦点数">+</button></div></div>
                 <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
@@ -135,10 +136,11 @@
             <!-- Step 3 -->
             <div class="step-card" id="workbench-step-observe" :class="{ active: store.ui.b3 === 'processing', completed: store.ui.b3 === 'success' }">
               <button type="button" class="card-header" @click="toggleStep(3)" :aria-expanded="!collapsedSteps.has(3)">
-                <span class="card-header-title"><span class="card-step-num">03</span><span class="card-header-copy"><b>OBSERVE</b><small>决策报告</small></span></span>
+                <span class="card-header-title"><span class="card-step-num">03</span><span class="card-header-copy"><b>OBSERVE</b><small>{{ store.entities.length ? '决策报告' : '完成前置步骤后解锁' }}</small></span></span>
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(3) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b3">{{ badgeText(store.ui.b3) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(3)">
+                <div v-if="!store.entities.length" class="step-lock-hint"><span>○</span><span>生成实体后解锁决策报告</span></div>
                 <button class="start-engine-btn" @click="genReportStream" :disabled="store.ui.reportRunning || !store.entities.length">
                   <span>{{ store.ui.reportRunning ? '生成中…' : '生成报告' }}</span><span>→</span>
                 </button>
@@ -257,12 +259,13 @@
             </div>
             </div>
             <!-- Step 4: Interview 节点（与任意 agent 对话） -->
-            <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running || !!store.chat.target, completed: store.chat.messages.length > 0 }" v-if="store.ui.b2 === 'success'">
+            <div class="step-card" id="workbench-step-interview" :class="{ active: store.chat.running || !!store.chat.target, completed: store.chat.messages.length > 0, locked: store.ui.b2 !== 'success' }">
               <button type="button" class="card-header" @click="toggleStep(4)" :aria-expanded="!collapsedSteps.has(4)">
-                <span class="card-header-title"><span class="card-step-num">04</span><span class="card-header-copy"><b>INTERVIEW</b><small>随时问节点</small></span></span>
+                <span class="card-header-title"><span class="card-step-num">04</span><span class="card-header-copy"><b>INTERVIEW</b><small>{{ store.ui.b2 === 'success' ? '随时问节点' : '完成推演后解锁' }}</small></span></span>
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(4) ? '+' : '−' }}</span><span class="badge" :class="store.chat.messages.length > 0 ? 'success' : store.chat.target ? 'processing' : 'pending'">{{ store.chat.messages.length > 0 || store.chat.target ? 'Active' : 'Pending' }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(4)">
+                <div v-if="store.ui.b2 !== 'success'" class="step-lock-hint"><span>○</span><span>完成 SIMULATE 后解锁节点访谈</span></div>
                 <div v-if="!store.chat.target" class="entity-chat-select">
                   <span class="tag-label">选择对话实体</span>
                   <div class="tags-list">
@@ -442,6 +445,11 @@ function focusWorkbenchTarget(key) {
   target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   target.classList.add('workflow-focus');
   window.setTimeout(() => target.classList.remove('workflow-focus'), 1200);
+}
+
+function startWorldBuild() {
+  viewMode.value = 'split';
+  nextTick(() => focusWorkbenchTarget('whatIf'));
 }
 
 function initializeWorld() {
