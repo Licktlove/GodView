@@ -160,6 +160,62 @@ input, textarea { font-family: inherit; }
 }
 .switch-btn.active { background: #3b9dd8; color: #071522; }
 .header-right { display: flex; align-items: center; gap: 12px; }
+.initialize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 196, 92, 0.38);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 196, 92, 0.08);
+  color: #f2c777;
+  font-size: 12px;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s;
+}
+.initialize-btn span { font-size: 16px; line-height: 1; }
+.initialize-btn b { font-weight: 600; }
+.initialize-btn:hover:not(:disabled) { border-color: rgba(255, 211, 126, 0.72); background: rgba(255, 196, 92, 0.16); color: #ffe0a2; }
+.initialize-btn:active:not(:disabled) { transform: translateY(1px); }
+.initialize-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.init-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 16, 28, 0.48);
+  backdrop-filter: blur(3px);
+}
+.init-confirm-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px 12px;
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid rgba(78, 166, 223, 0.42);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f8fbfd, #edf5f9);
+  box-shadow: 0 20px 60px rgba(2, 12, 22, 0.3);
+}
+.init-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 196, 92, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 196, 92, 0.14);
+  color: #b87516;
+  font-size: 23px;
+}
+.init-confirm-copy { min-width: 0; }
+.init-confirm-kicker { color: #7f9aad; font: 10px var(--font-mono); letter-spacing: 0.15em; }
+.init-confirm-copy h2 { margin: 5px 0 7px; color: var(--ink-deep); font-size: 20px; }
+.init-confirm-copy p { margin: 0; color: var(--body); font-size: 14px; line-height: 1.65; }
+.init-confirm-actions { grid-column: 2; display: flex; justify-content: flex-end; gap: 8px; }
+.init-confirm-submit { min-height: 36px; padding: 0 14px; border: 1px solid #2d80b5; border-radius: var(--radius-sm); background: linear-gradient(135deg, #2d80b5, #1d5e8d); color: #fff; cursor: pointer; font-size: 13px; font-weight: 700; }
+.init-confirm-submit:hover { filter: brightness(1.08); }
 .step-divider { width: 1px; height: 14px; background: var(--hairline); }
 .workflow-step { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .step-num-h { font-weight: 500; color: var(--mute); }

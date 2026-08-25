@@ -21,6 +21,9 @@
         </div>
       </div>
       <div class="header-right" v-if="viewMode!=='home'">
+        <button type="button" class="initialize-btn" @click="initializeWorld" :disabled="isBusy" title="清空当前推演并恢复默认参数">
+          <span aria-hidden="true">↺</span><b>初始化</b>
+        </button>
         <span class="status-indicator" :class="statusClass"><span class="dot"></span>{{ statusText }}</span>
         <button class="comparison-btn" v-if="store.comparison.baseline && store.comparison.withAssumptions" :class="{ active: comparisonMode }" @click="toggleComparison" title="对比模式：基线 vs 干预">
           ⚖ 对比
@@ -360,6 +363,21 @@
       </div>
       </template>
     </main>
+
+    <div v-if="initConfirmOpen" class="init-confirm-backdrop" @click.self="initConfirmOpen = false">
+      <section class="init-confirm-card" role="dialog" aria-modal="true" aria-labelledby="init-confirm-title">
+        <div class="init-confirm-icon" aria-hidden="true">↺</div>
+        <div class="init-confirm-copy">
+          <span class="init-confirm-kicker">SYSTEM RESET</span>
+          <h2 id="init-confirm-title">初始化当前场景？</h2>
+          <p>将清空实体、关系、推演、报告和对话，并恢复当前场景的默认参数。</p>
+        </div>
+        <div class="init-confirm-actions">
+          <button type="button" class="btn-secondary" @click="initConfirmOpen = false">取消</button>
+          <button type="button" class="init-confirm-submit" @click="confirmInitialize">确认初始化</button>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -389,6 +407,7 @@ const collapsedSections = ref(new Set());
 const collapsedSteps = ref(new Set([2, 3, 4]));
 const systemPanelOpen = ref(false);
 const comparisonMode = ref(false);
+const initConfirmOpen = ref(false);
 const workflowStepNumbers = [1, 2, 3, 4];
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
@@ -401,8 +420,9 @@ const currentStep = computed(() => {
   return 1;
 });
 const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '决策报告', 4: '深度互动' }[currentStep.value] || ''));
-const statusClass = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'processing' : 'ready');
-const statusText = computed(() => (store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running) ? 'Processing' : 'Ready');
+const isBusy = computed(() => store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running);
+const statusClass = computed(() => isBusy.value ? 'processing' : 'ready');
+const statusText = computed(() => isBusy.value ? 'Processing' : 'Ready');
 const chatTargetName = computed(() => store.entities.find(e => e.id === store.chat.target)?.name || '');
 const chatTargetType = computed(() => store.entities.find(e => e.id === store.chat.target)?.type || '实体节点');
 const chatSuggestions = ['这个节点当前是什么状态？', '它会影响哪些节点？', '为什么它是关键节点？'];
@@ -422,6 +442,32 @@ function focusWorkbenchTarget(key) {
   target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   target.classList.add('workflow-focus');
   window.setTimeout(() => target.classList.remove('workflow-focus'), 1200);
+}
+
+function initializeWorld() {
+  if (isBusy.value) return;
+  initConfirmOpen.value = true;
+}
+
+function confirmInitialize() {
+  initConfirmOpen.value = false;
+  resetWorld();
+  const defaults = store.scenario.defaultParams || {};
+  store.seed = '';
+  store.assumptions = [];
+  store.entN = defaults.entN || 12;
+  store.rounds = defaults.rounds || 6;
+  store.perR = defaults.perR || 6;
+  store.logs = [];
+  chatInput.value = '';
+  assumptionInput.value = '';
+  analysisInput.value = '';
+  collapsedSections.value = new Set();
+  collapsedSteps.value = new Set([2, 3, 4]);
+  systemPanelOpen.value = false;
+  comparisonMode.value = false;
+  pushLog('已初始化当前场景，等待输入经营问题。', 'ac');
+  nextTick(() => document.querySelector('.scroll-container')?.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
 function openWorkflowPhase(key) {
