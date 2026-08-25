@@ -5,6 +5,7 @@ import { detectCommunities, detectBridgeNodes, detectConflicts } from './analyti
 import { getScenario } from '../scenarios';
 import { typeColorFor } from './palette';
 import { predictKPIs } from './kpi';
+import { fillEntityQuota, uniqueEntities } from './entityQuota';
 
 export { computeImportance, typeColorFor };
 
@@ -53,17 +54,39 @@ export async function genEntities() {
   try {
     const sys = P('sysGen');
     const asm = assumptionsText();
+    const extractionTokens = Math.max(3500, Math.min(8000, 1800 + N * 180));
     const usr =
-      `场景：${seed}\n\n${asm ? asm + '\n\n' : ''}请抽取最多 ${N} 个相互作用的实体（agent）。` +
+      `场景：${seed}\n\n${asm ? asm + '\n\n' : ''}请严格抽取恰好 ${N} 个相互作用的实体（agent），不能少于或多于 ${N} 个。` +
       `\n允许的类型（可自定义新类型）：${(s.entityTypes || []).join('、')}` +
       `\n严格输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型","persona":"一句话人格/行为特征","goal":"核心目标"}],` +
       `"relations":[{"source":"实体id","target":"实体id","relation":"关系(<=12字)"}],` +
       `"recommend":{"rounds":推荐推演轮数3-200,"perR":每轮焦点agent数3-200,"reason":"理由"}}`;
-    const data = await callChat([{ role: 'system', content: sys }, { role: 'user', content: usr }], { json: true, temperature: 0.85, max_tokens: 3500 });
-    const ents = (data.entities || []).filter(e => e && e.id).filter((e, i, a) => a.findIndex(x => x.id === e.id) === i).slice(0, N);
+    const data = await callChat([{ role: 'system', content: sys }, { role: 'user', content: usr }], { json: true, temperature: 0.85, max_tokens: extractionTokens });
+    let ents = uniqueEntities(data.entities, N);
+    let relations = Array.isArray(data.relations) ? [...data.relations] : [];
+    if (ents.length < N) {
+      const missing = N - ents.length;
+      pushLog(`LLM 首轮抽取 ${ents.length}/${N} 个实体，正在补充 ${missing} 个…`, 'ac');
+      try {
+        const existing = ents.map(e => `${e.id}（${e.name || '未命名'}）`).join('、');
+        const supplement = await callChat([
+          { role: 'system', content: `${sys}\n你现在只负责补齐缺失实体，必须遵守数量要求，不要重复已有实体。` },
+          { role: 'user', content: `当前场景：${seed}\n已有实体：${existing || '无'}\n请补充恰好 ${missing} 个全新的相互作用实体，并返回它们之间或它们与已有实体之间的必要关系。严格输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型","persona":"一句话人格/行为特征","goal":"核心目标"}],"relations":[{"source":"实体id","target":"实体id","relation":"关系(<=12字)"}]}` },
+        ], { json: true, temperature: 0.7, max_tokens: Math.max(1600, Math.min(6000, 900 + missing * 220)) });
+        ents = uniqueEntities([...ents, ...(supplement.entities || [])], N);
+        relations.push(...(Array.isArray(supplement.relations) ? supplement.relations : []));
+      } catch (supplementErr) {
+        pushLog(`实体补充请求失败：${supplementErr.message || supplementErr}`, 'err');
+      }
+    }
     if (!ents.length) throw new Error('未返回实体');
+    if (ents.length < N) {
+      const beforeFallback = ents.length;
+      ents = fillEntityQuota(ents, N);
+      pushLog(`已用本地兜底补齐 ${N - beforeFallback} 个实体，已标记为“场景补充”`, 'ac');
+    }
     store.entities = ents;
-    (data.relations || []).forEach(r => {
+    relations.forEach(r => {
       const f = store.entities.find(x => x.id === r.source || x.name === r.source);
       const t = store.entities.find(x => x.id === r.target || x.name === r.target);
       if (f && t && f.id !== t.id) {
