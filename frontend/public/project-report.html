@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071b2d" />
+    <meta name="description" content="GodView 零售经营未来推演引擎项目汇报页" />
+    <title>GodView · 项目汇报</title>
+    <style>
+      :root {
+        --ink: #071b2d;
+        --ink-deep: #04111f;
+        --ink-soft: #0c2941;
+        --blue: #4ea6df;
+        --blue-bright: #89d6ff;
+        --blue-pale: #dff4ff;
+        --green: #35d39a;
+        --orange: #f2b84b;
+        --text: #f3f7fb;
+        --text-soft: #a9c0d3;
+        --text-dark: #203b53;
+        --muted-dark: #6d8499;
+        --line: rgba(104, 169, 211, 0.24);
+        --line-light: rgba(10, 55, 87, 0.13);
+        --paper: #f7fafc;
+        --paper-blue: #edf6fb;
+        --shadow: 0 24px 70px rgba(2, 22, 38, 0.2);
+        --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+        --sans: "DM Sans", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        color: var(--text-dark);
+        background: var(--paper);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a { color: inherit; text-decoration: none; }
+
+      .report {
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 86% 4%, rgba(78, 166, 223, 0.12), transparent 24rem),
+          var(--paper);
+      }
+
+      .nav,
+      .hero,
+      .section,
+      .footer {
+        width: min(1180px, calc(100% - 64px));
+        margin: 0 auto;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 76px;
+        border-bottom: 1px solid var(--line-light);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .brand img {
+        width: 130px;
+        height: auto;
+        display: block;
+      }
+
+      .brand-copy {
+        padding-left: 18px;
+        border-left: 1px solid var(--line-light);
+        color: var(--muted-dark);
+        font: 500 11px/1.4 var(--mono);
+        letter-spacing: 0.16em;
+      }
+
+      .nav-actions { display: flex; align-items: center; gap: 10px; }
+
+      .nav-link,
+      .nav-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 16px;
+        border: 1px solid var(--line-light);
+        border-radius: 5px;
+        background: transparent;
+        color: #285677;
+        cursor: pointer;
+        font: 600 12px var(--mono);
+        letter-spacing: 0.04em;
+      }
+
+      .nav-link:hover,
+      .nav-button:hover { border-color: var(--blue); color: var(--ink); }
+
+      .nav-button { border-color: var(--ink); background: var(--ink); color: white; }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.04fr) minmax(380px, 0.96fr);
+        gap: 76px;
+        align-items: center;
+        padding: 92px 0 88px;
+      }
+
+      .eyebrow,
+      .section-kicker,
+      .card-label,
+      .mini-label,
+      .metric-label {
+        color: var(--blue);
+        font: 600 11px/1.3 var(--mono);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        max-width: 680px;
+        margin: 22px 0 22px;
+        color: var(--ink);
+        font-size: clamp(48px, 6vw, 78px);
+        font-weight: 700;
+        letter-spacing: -0.075em;
+        line-height: 1.1;
+      }
+
+      .hero h1 em {
+        color: #2583bd;
+        font-style: normal;
+      }
+
+      .hero-lead {
+        max-width: 630px;
+        margin: 0;
+        color: #4b687e;
+        font-size: 18px;
+        line-height: 1.85;
+      }
+
+      .hero-tags { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 28px; }
+
+      .hero-tag {
+        padding: 8px 12px;
+        border: 1px solid rgba(45, 126, 179, 0.3);
+        border-radius: 999px;
+        background: rgba(224, 244, 254, 0.7);
+        color: #23648e;
+        font-size: 13px;
+      }
+
+      .hero-note {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 34px;
+        color: #7890a1;
+        font-size: 12px;
+      }
+
+      .led {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 0 5px rgba(53, 211, 154, 0.12), 0 0 15px rgba(53, 211, 154, 0.65);
+      }
+
+      .engine-card {
+        position: relative;
+        min-height: 438px;
+        padding: 28px;
+        overflow: hidden;
+        border: 1px solid rgba(121, 191, 230, 0.4);
+        border-radius: 12px;
+        background:
+          linear-gradient(145deg, rgba(25, 77, 111, 0.86), rgba(5, 24, 40, 0.98)),
+          var(--ink);
+        box-shadow: var(--shadow);
+        color: var(--text);
+      }
+
+      .engine-card::before,
+      .engine-card::after {
+        position: absolute;
+        content: "";
+        pointer-events: none;
+      }
+
+      .engine-card::before {
+        inset: 0;
+        opacity: 0.38;
+        background-image:
+          linear-gradient(rgba(127, 204, 247, 0.1) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(127, 204, 247, 0.1) 1px, transparent 1px);
+        background-size: 32px 32px;
+        mask-image: linear-gradient(135deg, black, transparent 74%);
+      }
+
+      .engine-card::after {
+        width: 260px;
+        height: 260px;
+        right: -90px;
+        top: -90px;
+        border: 1px solid rgba(137, 214, 255, 0.22);
+        border-radius: 50%;
+        box-shadow: 0 0 0 24px rgba(137, 214, 255, 0.025), 0 0 0 48px rgba(137, 214, 255, 0.018);
+      }
+
+      .engine-top,
+      .engine-title,
+      .engine-graph,
+      .engine-foot { position: relative; z-index: 1; }
+
+      .engine-top { display: flex; justify-content: space-between; align-items: center; }
+
+      .engine-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #b6d5e9;
+        font: 11px var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .engine-title { margin: 62px 0 0; max-width: 340px; font-size: 29px; line-height: 1.25; letter-spacing: -0.04em; }
+
+      .engine-title span { color: var(--blue-bright); }
+
+      .engine-graph {
+        position: relative;
+        height: 158px;
+        margin-top: 30px;
+        border-top: 1px solid rgba(143, 204, 237, 0.16);
+        border-bottom: 1px solid rgba(143, 204, 237, 0.16);
+      }
+
+      .engine-graph svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+      .engine-graph path { fill: none; stroke: #56b7e9; stroke-width: 1.2; stroke-dasharray: 4 7; opacity: 0.62; }
+
+      .engine-node { position: absolute; display: flex; align-items: center; gap: 7px; color: #cfe8f7; font-size: 11px; white-space: nowrap; }
+
+      .engine-node b { width: 9px; height: 9px; border: 2px solid #82d6ff; border-radius: 50%; background: var(--ink); box-shadow: 0 0 12px rgba(81, 192, 245, 0.85); }
+      .engine-node.hot b { border-color: var(--orange); box-shadow: 0 0 12px rgba(242, 184, 75, 0.8); }
+      .engine-node.one { left: 2%; top: 26%; }
+      .engine-node.two { left: 31%; top: 62%; }
+      .engine-node.three { left: 58%; top: 22%; }
+      .engine-node.four { right: 3%; top: 70%; }
+
+      .engine-foot { display: flex; justify-content: space-between; align-items: end; margin-top: 25px; }
+
+      .engine-foot strong { display: block; margin-top: 8px; color: white; font-size: 18px; }
+      .engine-foot small { color: #82a6bf; font: 10px var(--mono); letter-spacing: 0.08em; }
+
+      .signal { display: flex; gap: 5px; align-items: center; }
+      .signal i { width: 3px; height: 12px; background: var(--blue); opacity: 0.8; }
+      .signal i:nth-child(2) { height: 20px; background: var(--blue-bright); }
+      .signal i:nth-child(3) { height: 29px; background: var(--green); }
+      .signal i:nth-child(4) { height: 16px; background: var(--blue); }
+
+      .proof-strip {
+        background: var(--ink);
+        color: var(--text);
+      }
+
+      .proof-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: min(1180px, calc(100% - 64px));
+        margin: 0 auto;
+      }
+
+      .proof-item { padding: 31px 28px 34px 0; border-right: 1px solid var(--line); }
+      .proof-item:not(:first-child) { padding-left: 28px; }
+      .proof-item:last-child { border-right: 0; }
+      .proof-number { color: var(--blue-bright); font: 26px var(--mono); }
+      .proof-item h2 { margin: 8px 0 8px; font-size: 18px; letter-spacing: -0.02em; }
+      .proof-item p { max-width: 300px; margin: 0; color: var(--text-soft); font-size: 14px; line-height: 1.75; }
+
+      .section { padding: 118px 0; }
+
+      .section-heading { display: flex; justify-content: space-between; gap: 32px; align-items: end; margin-bottom: 42px; }
+      .section-heading h2 { max-width: 610px; margin: 12px 0 0; color: var(--ink); font-size: clamp(31px, 4vw, 50px); letter-spacing: -0.065em; line-height: 1.2; }
+      .section-heading p { max-width: 330px; margin: 0; color: #668197; font-size: 14px; line-height: 1.8; }
+
+      .workflow-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+      .workflow-card {
+        position: relative;
+        min-height: 230px;
+        padding: 25px 28px 28px;
+        overflow: hidden;
+        border: 1px solid rgba(45, 126, 179, 0.29);
+        border-radius: 9px;
+        background: linear-gradient(145deg, #f8fbfd, #edf5f9);
+      }
+
+      .workflow-card::after {
+        position: absolute;
+        right: -32px;
+        bottom: -52px;
+        width: 180px;
+        height: 180px;
+        border: 1px solid rgba(55, 150, 204, 0.16);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .workflow-card.featured { border-color: #3b95c9; background: linear-gradient(145deg, #e7f5fc, #f5fbfe); box-shadow: inset 0 3px 0 #4aa7dc; }
+      .workflow-head { display: flex; align-items: center; justify-content: space-between; }
+      .workflow-index { color: #1f78b0; font: 600 16px var(--mono); }
+      .workflow-kind { color: #75a0bb; font: 10px var(--mono); letter-spacing: 0.14em; }
+      .workflow-card h3 { margin: 29px 0 9px; color: var(--ink); font-size: 27px; letter-spacing: -0.05em; }
+      .workflow-card p { max-width: 450px; margin: 0; color: #537087; font-size: 14px; line-height: 1.75; }
+      .workflow-output { position: relative; z-index: 1; display: flex; gap: 8px; align-items: center; margin-top: 24px; color: #23658e; font: 11px var(--mono); }
+      .workflow-output::before { width: 22px; height: 1px; background: #65acd4; content: ""; }
+
+      .capability-layout { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 62px; align-items: start; }
+      .capability-intro h2 { margin: 13px 0 18px; color: var(--ink); font-size: 42px; letter-spacing: -0.06em; line-height: 1.15; }
+      .capability-intro p { margin: 0; color: #607b90; font-size: 15px; line-height: 1.9; }
+      .capability-list { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--line-light); }
+      .capability { min-height: 154px; padding: 22px 24px 20px 0; border-bottom: 1px solid var(--line-light); }
+      .capability:nth-child(even) { padding-left: 24px; border-left: 1px solid var(--line-light); }
+      .capability-mark { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; border: 1px solid #63abd2; border-radius: 50%; color: #2782ba; font: 11px var(--mono); }
+      .capability h3 { margin: 16px 0 7px; color: var(--ink); font-size: 17px; }
+      .capability p { margin: 0; color: #6b8396; font-size: 13px; line-height: 1.7; }
+
+      .snapshot {
+        background: var(--ink);
+        color: var(--text);
+      }
+
+      .snapshot-inner { width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding: 106px 0 112px; }
+      .snapshot .section-heading h2 { color: white; }
+      .snapshot .section-heading p { color: #9cb9cb; }
+      .snapshot .section-kicker { color: var(--blue-bright); }
+
+      .snapshot-board { display: grid; grid-template-columns: 1fr 0.75fr; gap: 16px; }
+      .metric-board,
+      .evidence-board { border: 1px solid var(--line); border-radius: 9px; background: linear-gradient(145deg, rgba(19, 59, 84, 0.75), rgba(5, 23, 39, 0.85)); }
+      .metric-board { padding: 29px; }
+      .metric-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+      .metric-head strong { color: white; font-size: 17px; }
+      .metric-head span { color: #79abc7; font: 10px var(--mono); letter-spacing: 0.1em; }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); padding-top: 28px; }
+      .metric { padding-right: 20px; border-right: 1px solid var(--line); }
+      .metric:not(:first-child) { padding-left: 20px; }
+      .metric:last-child { border-right: 0; }
+      .metric strong { display: block; color: var(--blue-bright); font: 600 43px/1 var(--mono); letter-spacing: -0.09em; }
+      .metric span { display: block; margin-top: 9px; color: #bed2df; font-size: 13px; }
+      .metric small { display: block; margin-top: 5px; color: #6d9bb8; font: 10px var(--mono); }
+      .metric-bars { display: flex; align-items: end; gap: 9px; height: 74px; margin-top: 28px; padding-top: 16px; border-top: 1px solid rgba(104, 169, 211, 0.14); }
+      .metric-bars i { display: block; flex: 1; min-width: 10px; background: linear-gradient(to top, #166995, #6ecbfa); opacity: 0.82; }
+      .metric-bars i:nth-child(1) { height: 25%; }
+      .metric-bars i:nth-child(2) { height: 40%; }
+      .metric-bars i:nth-child(3) { height: 50%; }
+      .metric-bars i:nth-child(4) { height: 64%; }
+      .metric-bars i:nth-child(5) { height: 54%; }
+      .metric-bars i:nth-child(6) { height: 82%; background: linear-gradient(to top, #1a8c82, #55e2b0); }
+      .metric-bars i:nth-child(7) { height: 100%; background: linear-gradient(to top, #c88834, #ffd475); }
+      .metric-bars i:nth-child(8) { height: 78%; }
+      .evidence-board { padding: 29px; }
+      .evidence-board h3 { margin: 0 0 25px; color: white; font-size: 18px; }
+      .evidence-line { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 16px 0; border-top: 1px solid var(--line); }
+      .evidence-line b { color: var(--blue-bright); font: 11px var(--mono); }
+      .evidence-line span { color: #b9d0df; font-size: 13px; line-height: 1.65; }
+      .evidence-note { margin-top: 20px; padding: 13px 14px; border: 1px solid rgba(242, 184, 75, 0.3); border-radius: 5px; color: #e8c97e; font-size: 12px; line-height: 1.65; }
+
+      .architecture { display: grid; grid-template-columns: 0.75fr 1.25fr; gap: 70px; align-items: start; }
+      .architecture h2 { margin: 13px 0 18px; color: var(--ink); font-size: 42px; letter-spacing: -0.06em; line-height: 1.15; }
+      .architecture > div > p { max-width: 360px; color: #607b90; font-size: 15px; line-height: 1.9; }
+      .stack-list { border-top: 1px solid var(--line-light); }
+      .stack-row { display: grid; grid-template-columns: 118px 1fr; gap: 22px; padding: 20px 0; border-bottom: 1px solid var(--line-light); }
+      .stack-row strong { color: #2375a7; font: 11px var(--mono); letter-spacing: 0.1em; }
+      .stack-row span { color: #32536a; font-size: 15px; line-height: 1.55; }
+
+      .closing { background: #e8f4fa; border-top: 1px solid rgba(45, 126, 179, 0.18); border-bottom: 1px solid rgba(45, 126, 179, 0.18); }
+      .closing-inner { display: flex; justify-content: space-between; align-items: center; gap: 32px; width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding: 58px 0; }
+      .closing h2 { margin: 0 0 8px; color: var(--ink); font-size: 30px; letter-spacing: -0.05em; }
+      .closing p { margin: 0; color: #607b90; font-size: 14px; }
+      .closing-link { display: inline-flex; align-items: center; gap: 14px; padding: 13px 18px; border-radius: 5px; background: var(--ink); color: white; font-size: 14px; white-space: nowrap; }
+      .closing-link:hover { background: #0d3857; }
+
+      .footer { display: flex; justify-content: space-between; gap: 20px; padding: 25px 0 29px; color: #7890a1; font-size: 12px; }
+      .footer span:last-child { font-family: var(--mono); }
+
+      @media (max-width: 900px) {
+        .hero { grid-template-columns: 1fr; gap: 48px; padding-top: 64px; }
+        .engine-card { min-height: 390px; }
+        .capability-layout,
+        .architecture { grid-template-columns: 1fr; gap: 44px; }
+        .snapshot-board { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 640px) {
+        .nav, .hero, .section, .footer, .proof-grid, .snapshot-inner, .closing-inner { width: min(100% - 34px, 520px); }
+        .nav { min-height: 68px; }
+        .brand-copy { display: none; }
+        .brand img { width: 115px; }
+        .nav-link, .nav-button { min-height: 32px; padding: 0 10px; font-size: 10px; }
+        .nav-link { display: none; }
+        .hero { padding: 56px 0 62px; }
+        .hero h1 { font-size: clamp(42px, 13vw, 64px); }
+        .hero-lead { font-size: 16px; }
+        .engine-card { min-height: 360px; padding: 22px; }
+        .engine-title { margin-top: 48px; font-size: 25px; }
+        .proof-grid { grid-template-columns: 1fr; }
+        .proof-item, .proof-item:not(:first-child) { padding: 23px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+        .proof-item:last-child { border-bottom: 0; }
+        .section { padding: 75px 0; }
+        .section-heading { display: block; margin-bottom: 30px; }
+        .section-heading p { margin-top: 18px; }
+        .workflow-grid { grid-template-columns: 1fr; }
+        .workflow-card { min-height: 205px; padding: 22px; }
+        .workflow-card h3 { margin-top: 22px; }
+        .capability-list { grid-template-columns: 1fr; }
+        .capability, .capability:nth-child(even) { padding: 20px 0; border-left: 0; }
+        .metrics { gap: 9px; }
+        .metric { padding-right: 8px; }
+        .metric:not(:first-child) { padding-left: 8px; }
+        .metric strong { font-size: 29px; }
+        .metric span { font-size: 11px; }
+        .metric small { font-size: 8px; }
+        .snapshot-inner { padding: 75px 0; }
+        .metric-board, .evidence-board { padding: 20px; }
+        .closing-inner { display: block; padding: 42px 0; }
+        .closing-link { margin-top: 24px; }
+        .footer { display: block; line-height: 1.8; }
+        .footer span:last-child { display: block; margin-top: 8px; }
+      }
+
+      @media print {
+        body { background: white; }
+        .report { background: white; }
+        .nav-button, .nav-link { display: none; }
+        .hero, .section, .snapshot-inner { padding-top: 52px; padding-bottom: 52px; }
+        .proof-strip, .snapshot { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .workflow-card, .capability, .stack-row, .metric-board, .evidence-board { break-inside: avoid; }
+        .closing { break-before: page; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="report">
+      <header class="nav">
+        <a class="brand" href="/" aria-label="返回 GodView 产品首页">
+          <img src="dmall-logo.png" alt="多点 DMALL" />
+          <span class="brand-copy">DECISION SIMULATION CONSOLE</span>
+        </a>
+        <div class="nav-actions">
+          <a class="nav-link" href="/">返回产品</a>
+          <button class="nav-button" type="button" onclick="window.print()">PRINT / PDF</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div>
+            <div class="eyebrow">GODVIEW / RETAIL DECISION SIMULATION</div>
+            <h1>把经营决策，<br /><em>先在未来发生一次。</em></h1>
+            <p class="hero-lead">
+              GodView 是面向零售经营的未来推演引擎。输入一个门店场景，它会长出一张会演化、能解释、可访谈的经营因果图谱，让团队在行动之前先看见传导路径。
+            </p>
+            <div class="hero-tags">
+              <span class="hero-tag">LLM 直抽图谱</span>
+              <span class="hero-tag">多智能体并行</span>
+              <span class="hero-tag">过程实时可见</span>
+              <span class="hero-tag">因果证据可追溯</span>
+            </div>
+            <div class="hero-note"><span class="led"></span><span>PROJECT BRIEF · 2026 · 零售经营决策沙盒</span></div>
+          </div>
+
+          <div class="engine-card" aria-label="GodView 推演引擎示意图">
+            <div class="engine-top">
+              <span class="mini-label">DECISION ENGINE</span>
+              <span class="engine-status"><span class="led"></span>SYSTEM READY</span>
+            </div>
+            <h2 class="engine-title">A WORLD THAT CAN BE <span>SEEN, RUN, AND ASKED.</span></h2>
+            <div class="engine-graph">
+              <svg viewBox="0 0 500 158" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M18 48 C105 9 122 132 213 98 S318 18 365 55 S428 122 490 106" />
+                <path d="M115 132 C164 102 178 37 238 50 S325 129 390 105" />
+                <path d="M28 51 C150 68 184 63 244 48 S354 31 485 106" />
+              </svg>
+              <span class="engine-node one"><b></b>顾客分群</span>
+              <span class="engine-node two"><b></b>门店</span>
+              <span class="engine-node three"><b></b>供应商</span>
+              <span class="engine-node four hot"><b></b>行动建议</span>
+            </div>
+            <div class="engine-foot">
+              <div><small>INPUT / OUTPUT</small><strong>SCENARIO → GRAPH → REPORT</strong></div>
+              <div class="signal" aria-label="推演信号"><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="proof-strip" aria-label="项目价值">
+          <div class="proof-grid">
+            <article class="proof-item">
+              <span class="proof-number">01</span>
+              <h2>让经营推理变得可见</h2>
+              <p>不只给一个结论，而是把客流、商品、供应链与毛利之间的传导关系画出来。</p>
+            </article>
+            <article class="proof-item">
+              <span class="proof-number">02</span>
+              <h2>让假设真正进入世界</h2>
+              <p>把“竞品降价”“新店开业”等前提注入图谱，观察它如何改变整个经营生态。</p>
+            </article>
+            <article class="proof-item">
+              <span class="proof-number">03</span>
+              <h2>让报告可以被追问</h2>
+              <p>报告生成后还能追问全局，或直接采访某个顾客、门店和竞品节点。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="workflow">
+          <div class="section-heading">
+            <div>
+              <div class="section-kicker">01 / SYSTEM WORKFLOW</div>
+              <h2>从一个经营问题，走到一条可解释的行动链。</h2>
+            </div>
+            <p>四个阶段不是四个孤立页面，而是一条从假设到决策的连续证据链。图谱在过程中持续生长，结果也可以回看和对比。</p>
+          </div>
+          <div class="workflow-grid">
+            <article class="workflow-card featured">
+              <div class="workflow-head"><span class="workflow-index">01</span><span class="workflow-kind">DEFINE</span></div>
+              <h3>WHAT IF · 构建世界</h3>
+              <p>输入经营场景与假设事件，LLM 直接抽取实体和初始关系，建立一张可运行的零售世界。</p>
+              <div class="workflow-output">场景 → 实体 → 关系</div>
+            </article>
+            <article class="workflow-card">
+              <div class="workflow-head"><span class="workflow-index">02</span><span class="workflow-kind">GROW</span></div>
+              <h3>SIMULATE · 自生长推演</h3>
+              <p>图谱节点作为带人格的 agent 并行反应，新的动作、关系和世界事件在轮次中持续涌现。</p>
+              <div class="workflow-output">动作 → 关系 → 生长</div>
+            </article>
+            <article class="workflow-card">
+              <div class="workflow-head"><span class="workflow-index">03</span><span class="workflow-kind">REASON</span></div>
+              <h3>OBSERVE · 决策报告</h3>
+              <p>生成报告前先检索图谱证据，整理影响中心、演化趋势、冲突与因果链，再形成行动建议。</p>
+              <div class="workflow-output">证据 → 因果 → 建议</div>
+            </article>
+            <article class="workflow-card">
+              <div class="workflow-head"><span class="workflow-index">04</span><span class="workflow-kind">ASK</span></div>
+              <h3>INTERVIEW · 随时问节点</h3>
+              <p>点任意节点，用它的 persona 与推演记忆回答问题，也可以把局部答案放回全局决策语境。</p>
+              <div class="workflow-output">节点 → 对话 → 追问</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="capabilities">
+          <div class="capability-layout">
+            <div class="capability-intro">
+              <div class="section-kicker">02 / CORE CAPABILITIES</div>
+              <h2>不是聊天框，<br />是一张会动的经营地图。</h2>
+              <p>GodView 把大模型的生成能力放进可观察的系统里：有图谱、有过程、有证据，也有能被业务人员继续追问的上下文。</p>
+            </div>
+            <div class="capability-list">
+              <article class="capability"><span class="capability-mark">01</span><h3>LLM 直抽图谱</h3><p>从种子文本直接抽取实体与初始关系，轻量启动，不依赖外部图数据库。</p></article>
+              <article class="capability"><span class="capability-mark">02</span><h3>多智能体社会涌现</h3><p>节点即 agent，按图谱上下文和世界事件并行反应，关键角色可锁定。</p></article>
+              <article class="capability"><span class="capability-mark">03</span><h3>实时活动流</h3><p>每轮动作、新关系和影响过程实时可见，推演不再是等待黑盒结果。</p></article>
+              <article class="capability"><span class="capability-mark">04</span><h3>因果证据可追溯</h3><p>报告动笔前先检索影响力中心、演化趋势和冲突，建议对应证据路径。</p></article>
+              <article class="capability"><span class="capability-mark">05</span><h3>节点角色访谈</h3><p>采访价格敏感型顾客、隔壁竞品或门店本身，理解它们为什么这么行动。</p></article>
+              <article class="capability"><span class="capability-mark">06</span><h3>场景包可扩展</h3><p>零售、供应链等领域知识外置为场景包，换场景不换推理引擎。</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="snapshot">
+          <div class="snapshot-inner">
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">03 / DEMO RUN</div>
+                <h2>一次推演，留下的不只是数字。</h2>
+              </div>
+              <p>下面是产品演示运行的展示方式。实体数、关系数和轮次会随经营场景与模型输出动态变化。</p>
+            </div>
+            <div class="snapshot-board">
+              <div class="metric-board">
+                <div class="metric-head"><strong>社区团购低价截流</strong><span>EXAMPLE SCENARIO</span></div>
+                <div class="metrics">
+                  <div class="metric"><strong>228</strong><span>实体</span><small>ENTITIES</small></div>
+                  <div class="metric"><strong>893</strong><span>关系</span><small>RELATIONS</small></div>
+                  <div class="metric"><strong>24</strong><span>推演轮次</span><small>ROUNDS</small></div>
+                </div>
+                <div class="metric-bars" aria-label="推演轮次中的关系增长示意"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="evidence-board">
+                <h3>REPORT EVIDENCE / 报告证据</h3>
+                <div class="evidence-line"><b>CAUSE</b><span>低价事件 → 客流迁移 → 门店反应</span></div>
+                <div class="evidence-line"><b>FOCUS</b><span>影响力中心、桥节点与高频关系</span></div>
+                <div class="evidence-line"><b>OUTPUT</b><span>可解释建议、冲突提示与后续追问</span></div>
+                <div class="evidence-note">推演 ≠ 预测。置信度只代表内部自洽程度，重大决策仍需结合真实业务数据校准。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="architecture">
+            <div>
+              <div class="section-kicker">04 / TECHNICAL FOUNDATION</div>
+              <h2>轻量架构，<br />把复杂过程交给可观察的界面。</h2>
+              <p>前端负责把世界呈现出来，推演引擎负责让世界运行起来，后端代理负责连接兼容 OpenAI 协议的模型并保存实验快照。</p>
+            </div>
+            <div class="stack-list">
+              <div class="stack-row"><strong>EXPERIENCE</strong><span>Vue 3 + Vite + D3.js，力导向知识图谱、过程面板与分屏工作台。</span></div>
+              <div class="stack-row"><strong>ENGINE</strong><span>实体抽取、关系演化、多智能体并行轮次、稳态早停、冲突与桥节点分析。</span></div>
+              <div class="stack-row"><strong>REPORT</strong><span>ReACT 式图谱检索证据，支持章节流式生成、因果链和决策建议。</span></div>
+              <div class="stack-row"><strong>SERVICE</strong><span>Node.js + Express，LLM 代理、SSE 真流式传输、实验 JSON 持久化。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="closing">
+          <div class="closing-inner">
+            <div><h2>从一个经营问题开始。</h2><p>输入场景，构建世界，观察它如何演化，再决定下一步。</p></div>
+            <a class="closing-link" href="/">进入 GodView 产品 <span>→</span></a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>© 2026 Dmall Future Market · 多智能体涌现推演引擎</span>
+        <span>GODVIEW / PROJECT REPORT / 01</span>
+      </footer>
+    </div>
+  </body>
+</html>
