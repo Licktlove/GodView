@@ -2,18 +2,18 @@
   <div class="app" :class="{ 'report-print-mode': reportViewOpen }">
     <header class="app-header" v-if="viewMode!=='home' && viewMode!=='workflow'">
       <div class="header-left">
-        <button type="button" class="home-return-btn" @click="viewMode='home'" aria-label="返回首页">
-          <span>←</span><b>首页</b>
-        </button>
-        <button type="button" class="home-return-btn workflow-return-btn" @click="viewMode='workflow'" aria-label="返回流程页">
-          <span>←</span><b>流程页</b>
-        </button>
         <div class="brand-block" @click="viewMode='home'">
-          <img class="brand-logo" src="/brand-logo.svg" alt="公司 Logo" />
-          <div class="brand-sub">让每一个经营决策，都先在未来发生一次。</div>
+          <img class="brand-logo" src="/brand-logo.svg" alt="多点 DMALL" />
+          <div class="brand-sub">DECISION SIMULATION CONSOLE</div>
         </div>
       </div>
       <div class="header-center">
+        <div class="scenario-switcher">
+          <span class="scenario-label">场景</span>
+          <select class="scenario-select" :value="store.scenarioId" title="切换场景包（领域知识）" @change="onSwitchScenario">
+            <option v-for="s in scenarios" :key="s.id" :value="s.id">{{ s.label }}</option>
+          </select>
+        </div>
         <div class="view-switcher">
           <button v-for="m in ['graph','split','workbench']" :key="m" class="switch-btn" :class="{active: viewMode===m}" @click="viewMode=m">
             {{ {graph:'图谱', split:'分屏', workbench:'工作台'}[m] }}
@@ -37,7 +37,7 @@
     </header>
 
     <main class="content-area">
-      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @workflow="viewMode='workflow'" @demo="runDemoSequence" />
+      <HomeView v-if="viewMode==='home'" @enter="viewMode='split'" @demo="runDemoSequence" />
       <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" @phase="openWorkflowPhase" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
@@ -109,7 +109,7 @@
                 <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" role="group" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', -1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', -1, 1, 200)" :disabled="store.perR <= 1" aria-label="减少每轮焦点数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.perR" @blur="normalizeNumber('perR', 1, 200)" @keydown.enter.prevent="normalizeNumber('perR', 1, 200)" aria-label="每轮焦点数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', 1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', 1, 1, 200)" :disabled="store.perR >= 200" aria-label="增加每轮焦点数">+</button></div></div>
                 <template v-if="store.ui.b2 === 'paused'">
                   <div class="sim-ctl-row">
-                    <button class="start-engine-btn" @click="runSim">
+                    <button class="start-engine-btn" @click="runSimAuto">
                       <span>▶ 继续推演</span><span>→</span>
                     </button>
                     <button class="btn-secondary" @click="stopSim">⏹ 停止并保留</button>
@@ -122,7 +122,7 @@
                     <button class="btn-secondary" @click="stopSim">⏹ 停止并保留</button>
                   </div>
                 </template>
-                <button v-else class="start-engine-btn" @click="runSim" :disabled="!store.ui.step1Done">
+                <button v-else class="start-engine-btn" @click="runSimAuto" :disabled="!store.ui.step1Done">
                   <span>启动推演</span><span>→</span>
                 </button>
                 <button v-if="store.assumptions.length && store.ui.step1Done" class="btn-secondary" style="display:block;margin:8px auto 0" @click="runComparison" :disabled="store.ui.simRunning">
@@ -409,17 +409,30 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
-import { store, pushLog, resetWorld, toggleLock } from './store/sim';
+import { store, pushLog, resetWorld, toggleLock, setScenario } from './store/sim';
 import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim } from './engine/simulate';
 import { loadDemo } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
+import { listScenarios } from './scenarios';
 import HomeView from './components/HomeView.vue';
 import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
 import ReportView from './components/ReportView.vue';
 import { renderMarkdown } from './utils/markdown';
+
+const scenarios = listScenarios();
+function onSwitchScenario(e) {
+  const id = e.target.value;
+  if (id === store.scenarioId) return;
+  // 切换会重置世界，若有推演先确认
+  if (store.entities.length && !window.confirm('切换场景将清空当前图谱，确定继续？')) {
+    e.target.value = store.scenarioId; // 还原下拉
+    return;
+  }
+  setScenario(id);
+}
 
 const viewMode = ref('home');
 const reportViewOpen = ref(false);
@@ -821,13 +834,54 @@ async function runDemoSequence() {
   }
 }
 
-async function saveExperiment() {
+async function saveExperiment(name) {
   if (!store.entities.length) return;
   try {
-    const { data } = await api.post('/api/experiment', { name: store.seed.slice(0,20) || '未命名', state: { entities: store.entities, edges: store.edges, growth: store.growth, report: store.report, episodes: store.episodes, reportOutline: store.reportOutline, reportSections: store.reportSections } });
+    const { data } = await api.post('/api/experiment', { name: name || store.seed.slice(0,20) || '未命名', state: { entities: store.entities, edges: store.edges, growth: store.growth, report: store.report, episodes: store.episodes, reportOutline: store.reportOutline, reportSections: store.reportSections } });
     pushLog('已保存推演：' + data.id, 'ok'); refreshHistory();
   } catch (e) { pushLog('保存失败：' + e.message, 'err'); }
 }
+// 自动保存：每次推演结束自动落一份快照到后端
+async function runSimAuto() {
+  await runSim();
+  if (store.entities.length) {
+    saveExperiment('【自动】' + (store.scenario.label || '') + (store.seed ? ' · ' + store.seed.slice(0, 12) : ''));
+  }
+}
+// ---------- 本地持久化：防页面刷新 / 服务重启丢推演 ----------
+const LS_KEY = 'godview-sandbox-v1';
+let persistTimer = null;
+function persistNow() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      scenarioId: store.scenarioId,
+      seed: store.seed, assumptions: store.assumptions,
+      entN: store.entN, rounds: store.rounds, perR: store.perR,
+      entities: store.entities, edges: store.edges, growth: store.growth,
+      report: store.report, episodes: store.episodes,
+      reportOutline: store.reportOutline, reportSections: store.reportSections,
+      ui: { b1: store.ui.b1, b2: store.ui.b2, b3: store.ui.b3, step1Done: store.ui.step1Done },
+    }));
+  } catch (e) { /* localStorage 满/禁用时静默 */ }
+}
+function persistDebounced() { clearTimeout(persistTimer); persistTimer = setTimeout(persistNow, 800); }
+function restoreLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s.entities || !s.entities.length) return;
+    if (s.scenarioId && s.scenarioId !== store.scenarioId) setScenario(s.scenarioId);
+    store.seed = s.seed || ''; store.assumptions = s.assumptions || [];
+    if (s.entN) store.entN = s.entN; if (s.rounds) store.rounds = s.rounds; if (s.perR) store.perR = s.perR;
+    store.entities = s.entities; store.edges = s.edges || []; store.growth = s.growth || [];
+    store.report = s.report || null; store.episodes = s.episodes || {};
+    store.reportOutline = s.reportOutline || null; store.reportSections = s.reportSections || {};
+    Object.assign(store.ui, { b1: 'success', b2: 'success', b3: s.report ? 'success' : 'pending', step1Done: true });
+    pushLog('♻ 已从本地恢复上次推演：' + store.entities.length + ' 实体 / ' + store.edges.length + ' 关系', 'ac');
+  } catch (e) { /* 损坏数据直接忽略 */ }
+}
+watch(() => [store.entities, store.edges, store.growth], persistDebounced, { deep: true });
 async function loadExperiment(id) {
   try {
     const { data } = await api.get('/api/experiment/' + id);
@@ -855,6 +909,6 @@ watch(() => store.ui.b2, (status, previous) => {
 watch(() => store.ui.b3, (status, previous) => {
   if (status === 'success' && previous !== 'success') expandStep(4);
 });
-onMounted(() => { refreshHealth(); refreshHistory(); });
+onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); });
 onBeforeUnmount(stopAdjust);
 </script>

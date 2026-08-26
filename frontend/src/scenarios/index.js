@@ -27,8 +27,12 @@ function register(s) {
 // 延迟导入具体场景，避免循环依赖问题
 import retail from './retail';
 import supplyChain from './supplyChain';
+import macro from './macro';
+import ai from './ai';
 register(retail);
 register(supplyChain);
+register(macro);
+register(ai);
 
 export const DEFAULT_SCENARIO_ID = 'retail';
 
