@@ -229,7 +229,7 @@ const phases = [
   display: block;
   width: clamp(142px, 12vw, 174px);
   height: 28px;
-  filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.2));
+  filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(125, 211, 252, 0.2));
 }
 .entry-brand-sub {
   align-self: flex-end;
