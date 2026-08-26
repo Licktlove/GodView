@@ -299,16 +299,43 @@ function runAnalytics() {
   if (store.communities.length) pushLog(`图谱分析：${store.communities.length} 个群体，${store.bridgeNodes.length} 个桥节点`, 'ac');
 }
 
+// #8 推演运行令牌：每次 runSim（含续跑）生成新 id；暂停不递增（靠 simWantsPause 标记），停止/重生成/初始化递增以作废旧令牌
+let simRunId = 0;
+
+export function invalidateSimRun() { simRunId++; }
+
 export async function runSim() {
+  const runId = ++simRunId;
   if (!store.ui.step1Done) { pushLog('请先生成实体', 'err'); return; }
   store.ui.simRunning = true;
-  store.ui.b2 = 'processing';
+  const isResume = store.ui.b2 === 'paused';
   const total = +store.rounds;
-  pushLog(`▶ 启动多智能体涌现推演：${total} 轮，每轮 ${store.perR} agent` + (store.lockedIds.length ? `，锁定主角 ${store.lockedIds.length} 个` : ''), 'ac');
+  const startRound = isResume ? Math.min(store.simRound + 1, total) : 1;
+  if (isResume && startRound > total) {
+    // 全部轮次已跑完的续跑：直接完成（KPI 已生成，simRound 已定格）
+    runAnalytics();
+    pushLog(`✓ 推演已完成全部 ${total} 轮（继续无新轮次）`, 'ok');
+    store.ui.b2 = 'success';
+    store.ui.simRunning = false;
+    return;
+  }
+  store.ui.b2 = 'processing';
+  // 续跑时收敛计数归零（暂停前已完成轮次不参与新稳态判断）
+  let stable = 0;
+  if (isResume) {
+    pushLog(`▶ 继续推演：从第 ${startRound} 轮续跑，共 ${total} 轮`, 'ac');
+  } else {
+    pushLog(`▶ 启动多智能体涌现推演：${total} 轮，每轮 ${store.perR} agent` + (store.lockedIds.length ? `，锁定主角 ${store.lockedIds.length} 个` : ''), 'ac');
+  }
+  let endedByPause = false;
+  let endedByStop = false;
   try {
     // ⑤ 稳态早停：连续 2 轮零新增关系（且已跑 >= 3 轮）→ 世界收敛，提前结束省 token
-    let stable = 0;
-    for (let r = 1; r <= total; r++) {
+    for (let r = startRound; r <= total; r++) {
+      // #8：停止路径由 stopSim 递增 simRunId 让令牌失效（runId !== simRunId → 立刻结束）
+      if (runId !== simRunId) { endedByStop = true; break; }
+      // #8：暂停只设 store.simWantsPause（runId 不变），本轮后自然停
+      if (store.simWantsPause) { endedByPause = true; store.simWantsPause = false; break; }
       const added = await runRound(r, total);
       // KPI 数值预测：每轮推演后估算关键指标
       predictKPIs(r).catch(() => {});
@@ -320,14 +347,43 @@ export async function runSim() {
       }
     }
     runAnalytics();
-    pushLog(`✓ 推演完成：节点 ${store.entities.length}，关系 ${store.edges.length}`, 'ok');
-    store.ui.b2 = 'success';
+    if (endedByStop) {
+      store.ui.b2 = 'success';
+      pushLog(`✓ 推演已停止并保留部分结果：节点 ${store.entities.length}，关系 ${store.edges.length}`, 'ok');
+    } else if (endedByPause) {
+      store.ui.b2 = 'paused';
+      pushLog(`⏸ 已暂停：当前处于 R${store.simRound}，点「继续推演」从下一轮续跑`, 'ac');
+    } else {
+      store.ui.b2 = 'success';
+      pushLog(`✓ 推演完成：节点 ${store.entities.length}，关系 ${store.edges.length}`, 'ok');
+    }
   } catch (err) {
-    store.ui.b2 = 'pending';
-    pushLog('推演中断：' + err.message, 'err');
+    // 只处理当前令牌下的中断错误，避免旧令牌错误串到新一轮
+    if (runId === simRunId) {
+      store.ui.b2 = 'pending';
+      pushLog('推演中断：' + err.message, 'err');
+    }
   } finally {
+    store.simWantsPause = false; store.simStopped = false;
     store.ui.simRunning = false;
   }
+}
+
+// #8 暂停：不打断在途 agent 的 LLM 调用（保留整轮结果），当前轮全部完成后从下一轮起停
+export function pauseSim() {
+  if (!store.ui.simRunning) return;
+  store.simWantsPause = true;
+  store.simStopped = false;
+  pushLog(`⏸ 已请求暂停，当前轮结束后停在 R${store.simRound}…`, 'ac');
+}
+
+// #8 停止：让所有在途轮令牌失效，保留已完成的轮次结果，并跑完分析
+export function stopSim() {
+  if (!store.ui.simRunning) return;
+  simRunId++;
+  store.simStopped = true;
+  store.simWantsPause = false;
+  pushLog('⏹ 正在停止推演，保留已完成部分…', 'ac');
 }
 
 // ============ Step 3: ReACT 多章节报告（章节生成供 SSE 流式调用） ============

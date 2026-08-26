@@ -16,6 +16,11 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as d3 from 'd3';
 import { store } from '../store/sim';
 
+const props = defineProps({
+  // 'auto' 工作台内自切换；'kpi' 报告页强制 KPI 曲线；'count' 强制结构曲线
+  mode: { type: String, default: 'auto' },
+});
+
 const containerRef = ref(null);
 const kpiMode = ref(false);
 let resizeObserver = null;
@@ -147,8 +152,12 @@ function renderKPI() {
 }
 
 function render() {
-  if (kpiMode.value && hasKpiData.value) renderKPI();
-  else renderCount();
+  const forcedKpi = props.mode === 'kpi';
+  const forcedCount = props.mode === 'count';
+  const showKpi = (props.mode === 'auto' && kpiMode.value && hasKpiData.value) || forcedKpi;
+  const showCount = (props.mode === 'auto' && !kpiMode.value) || forcedCount;
+  if (showKpi && hasKpiData.value) renderKPI();
+  else if (showCount || store.growth.length >= 2) renderCount();
 }
 
 onMounted(() => {
@@ -161,6 +170,7 @@ onMounted(() => {
 onBeforeUnmount(() => { if (resizeObserver) resizeObserver.disconnect(); });
 watch(() => store.growth.length, () => nextTick(render));
 watch(() => store.kpiCurves, () => { nextTick(render); }, { deep: true });
+watch(() => props.mode, () => nextTick(render));
 </script>
 
 <style scoped>

@@ -761,6 +761,37 @@ input:checked + .slider:before { transform: translateX(14px); }
 .kpi-up { color: var(--green); font-weight: 700; }
 .kpi-down { color: var(--red); font-weight: 700; }
 
+/* #8 推演控制：暂停/停止三态 + 进度条 */
+.sim-ctl-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.sim-ctl-row .start-engine-btn { margin-top: 0; }
+.sim-paused-hint {
+  margin-top: 8px; font-size: 11px; color: var(--mute); text-align: center;
+  border: 1px dashed var(--warning); border-radius: var(--radius-sm); padding: 6px 10px;
+}
+.sim-progress {
+  display: inline-block; width: 120px; height: 4px; margin-left: 8px;
+  background: var(--surface-card); border-radius: var(--radius-pill); overflow: hidden;
+  vertical-align: middle;
+}
+.sim-progress-bar {
+  display: block; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent-hover));
+  border-radius: var(--radius-pill); transition: width 0.4s ease;
+}
+.badge.paused { background: var(--warning); color: #fff; }
+.view-report-btn { margin-right: 8px; }
+.observe-results-actions { display: flex; align-items: center; gap: 8px; }
+.logo-sim-ctl-row .btn-secondary { margin-top: 8px; }
+
+/* #10 报告全屏页打印：打开报告页时打印只输出报告，隐藏应用外壳 */
+@media print {
+  .report-print-mode .app-header,
+  .report-print-mode .panel-wrapper,
+  .report-print-mode .init-confirm-backdrop { display: none !important; }
+  .report-print-mode { background: #fff !important; }
+  body.report-print-mode .report-view { height: auto !important; }
+  .report-print-mode .report-view .rv-scroll { overflow: visible; }
+}
+
 @media (max-width: 760px) {
   .chat-messages { height: 280px; padding: 14px 12px; }
   .chat-msg { max-width: 90%; }

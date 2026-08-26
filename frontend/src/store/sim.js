@@ -47,6 +47,8 @@ export const store = reactive({
   activityFeed: [],  // [{round, actor, text, kind}] kind: 'rel'|'effect'|'born'|'info'
   simRound: 0,       // 当前推演轮次（用于进度显示）
   lockedIds: [],     // ② 核心角色锁定：常驻焦点（每轮必出场）
+  simWantsPause: false,  // #8 暂停请求：当前轮跑完后从下一轮起停（避免打断半途 LLM JSON）
+  simStopped: false,     // #8 手动停止：解析并保留已完成部分
 
   nodeInfo: null,
 
@@ -80,6 +82,7 @@ export function resetWorld() {
   store.communities = []; store.bridgeNodes = [];
   store.chat = { target: null, messages: [], running: false };
   store.activityFeed = []; store.simRound = 0;
+  store.simWantsPause = false; store.simStopped = false;
   store.lockedIds = [];
   store.analysis = { messages: [], running: false };
   store.nodeInfo = null;

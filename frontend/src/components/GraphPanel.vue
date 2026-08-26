@@ -179,6 +179,8 @@ let simulation = null;
 let svgSel = null, gSel = null, zoom = null;
 let node = null, link = null, linkLabels = null;
 let lastNodesData = [];
+let lastZoomSave = null;        // #7 保留 zoom：重绘后恢复视角
+const posCache = new Map();     // #7 节点 id → {x,y}：跨重绘保留位置，避免力导向重新排布跳动
 
 // analytics snapshots (computed on full graph)
 let localConflicts = [];
@@ -348,6 +350,11 @@ function renderGraph() {
   const height = container.clientHeight;
   if (width < 10 || height < 10) return;
 
+  // #7 保留 zoom：在清空 SVG 前读取当前 transform
+  if (svgSel) {
+    try { lastZoomSave = d3.zoomTransform(svgSel.node()); } catch (e) {}
+  }
+
   if (simulation) { simulation.stop(); simulation = null; }
 
   // Feature 1+5: compute analytics on the FULL graph (stable colors)
@@ -384,17 +391,23 @@ function renderGraph() {
 
   const imp = computeImportance(store.entities, store.edges);
 
-  let nodes = store.entities.map(e => ({
-    ...e, _imp: imp[e.id] || 10,
-    _isolated: isIsolated(e.id),
-    _neighbors: store.edges.filter(x => x.source === e.id || x.target === e.id).map(x => {
-      const o = store.entities.find(y => y.id === (x.source === e.id ? x.target : x.source));
-      return o ? { name: o.name, relation: x.relation, round: x.round } : null;
-    }).filter(Boolean),
-    _episodes: store.episodes[e.id] || [],
-  }));
+  // #7 复用同一 id 节点上一轮的位置，避免力导向重排把布局打乱
+  const allNodes = store.entities.map(e => {
+    const prev = posCache.get(e.id);
+    return {
+      ...e, _imp: imp[e.id] || 10,
+      ...(prev ? { x: prev.x, y: prev.y } : {}),
+      _isolated: isIsolated(e.id),
+      _neighbors: store.edges.filter(x => x.source === e.id || x.target === e.id).map(x => {
+        const o = store.entities.find(y => y.id === (x.source === e.id ? x.target : x.source));
+        return o ? { name: o.name, relation: x.relation, round: x.round } : null;
+      }).filter(Boolean),
+      _episodes: store.episodes[e.id] || [],
+    };
+  });
 
   // C: 隐藏孤立节点（无连边）—— 在构建 nodeIds 之前剔除，边随之自然过滤
+  let nodes = allNodes;
   if (hideIsolated.value) nodes = nodes.filter(n => !n._isolated);
   if (!nodes.length) return;
 
@@ -417,6 +430,8 @@ function renderGraph() {
   gSel = svgSel.append('g');
   zoom = d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.1, 4]).on('zoom', e => gSel.attr('transform', e.transform));
   svgSel.call(zoom);
+  // #7 恢复之前视角（缩放/平移不因重绘丢失）
+  if (lastZoomSave) svgSel.call(zoom.transform, lastZoomSave);
 
   // Links
   const linkGroup = gSel.append('g').attr('class', 'links');
@@ -545,6 +560,9 @@ function renderGraph() {
   node.call(drag);
 
   // ---- Forces per layout ----
+  // #7 复用节点位置时降低模拟强度：新节点接入现有布局而非全部重排
+  const hasReusedPos = nodes.some(n => posCache.has(n.id));
+  const initAlpha = hasReusedPos ? 0.35 : 0.9;
   if (layoutMode.value === 'hierarchical') {
     const pos = hierarchicalPositions(nodes, width, height);
     nodes.forEach(n => { const p = pos[n.id]; if (p) { n.x = p.x; n.y = p.y; n._tx = p.x; n._ty = p.y; } });
@@ -554,7 +572,7 @@ function renderGraph() {
       .force('y', d3.forceY(d => d._ty).strength(1))
       .force('charge', d3.forceManyBody().strength(d => -(nodeRadius(d) * 8)))
       .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 8))
-      .alphaDecay(0.08).alpha(0.7);
+      .alphaDecay(0.08).alpha(initAlpha);
   } else {
     // force (and timeline)
     // A: 孤立节点无连边约束，力导向会把它们甩到外围；用更强的向心拉力把它们聚拢到中心圈
@@ -564,7 +582,8 @@ function renderGraph() {
       .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
       .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 28))
       .force('x', d3.forceX(width / 2).strength(d => d._isolated ? 0.12 : 0.02))
-      .force('y', d3.forceY(height / 2).strength(d => d._isolated ? 0.12 : 0.02));
+      .force('y', d3.forceY(height / 2).strength(d => d._isolated ? 0.12 : 0.02))
+      .alphaDecay(0.08).alpha(initAlpha);
   }
 
   simulation.on('tick', () => {
@@ -574,10 +593,15 @@ function renderGraph() {
       linkLabels.attr('x', d => (d.source.x + d.target.x) / 2).attr('y', d => (d.source.y + d.target.y) / 2);
     }
     node.attr('transform', d => `translate(${d.x},${d.y})`);
+    // #7 每 tick 记录当前位置，供下次重绘复用
+    d3.selectAll(node.nodes().filter(d => d && d.id)).each(d => posCache.set(d.id, { x: d.x, y: d.y }));
   });
 
   applyEmphasis();
 }
+
+// ---------- Data binding helpers / debounce ----------
+let rerenderTimer = null;
 
 let resizeObserver = null;
 onMounted(() => {
@@ -587,9 +611,13 @@ onMounted(() => {
     if (containerRef.value) resizeObserver.observe(containerRef.value);
   });
 });
-onBeforeUnmount(() => { if (simulation) simulation.stop(); if (resizeObserver) resizeObserver.disconnect(); });
+onBeforeUnmount(() => { if (simulation) simulation.stop(); if (resizeObserver) resizeObserver.disconnect(); if (rerenderTimer) clearTimeout(rerenderTimer); });
 
-watch(() => [store.entities.length, store.edges.length], () => nextTick(renderGraph), { deep: true });
+watch(() => [store.entities.length, store.edges.length], () => {
+  // #7 防抖合并重绘：同轮内多段新增只触发一次，避免每次 force 重建导致跳动
+  clearTimeout(rerenderTimer);
+  rerenderTimer = setTimeout(() => nextTick(renderGraph), 300);
+}, { deep: true });
 watch(() => store.episodes, () => { /* re-render for episode display */ }, { deep: true });
 watch(() => store.causalChains, () => { if (node) applyEmphasis(); }, { deep: true });
 watch(searchQuery, () => { if (node) applyEmphasis(); });

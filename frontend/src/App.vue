@@ -1,5 +1,5 @@
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'report-print-mode': reportViewOpen }">
     <header class="app-header" v-if="viewMode!=='home' && viewMode!=='workflow'">
       <div class="header-left">
         <button type="button" class="home-return-btn" @click="viewMode='home'" aria-label="返回首页">
@@ -107,8 +107,23 @@
                 <div v-if="!store.ui.step1Done" class="step-lock-hint"><span>○</span><span>完成 WHAT IF 后解锁推演</span></div>
                 <div class="slider-row"><span class="lab">推演轮数</span><div class="number-stepper" role="group" aria-label="推演轮数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', -1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', -1, 1, 200)" :disabled="store.rounds <= 1" aria-label="减少推演轮数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.rounds" @blur="normalizeNumber('rounds', 1, 200)" @keydown.enter.prevent="normalizeNumber('rounds', 1, 200)" aria-label="推演轮数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('rounds', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('rounds', 1, 1, 200)" @keydown.space.prevent="adjustNumber('rounds', 1, 1, 200)" :disabled="store.rounds >= 200" aria-label="增加推演轮数">+</button></div></div>
                 <div class="slider-row"><span class="lab">每轮焦点数</span><div class="number-stepper" role="group" aria-label="每轮焦点数"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', -1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', -1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', -1, 1, 200)" :disabled="store.perR <= 1" aria-label="减少每轮焦点数">−</button><input class="stepper-input" type="number" min="1" max="200" inputmode="numeric" v-model.number="store.perR" @blur="normalizeNumber('perR', 1, 200)" @keydown.enter.prevent="normalizeNumber('perR', 1, 200)" aria-label="每轮焦点数" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('perR', 1, 1, 200, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('perR', 1, 1, 200)" @keydown.space.prevent="adjustNumber('perR', 1, 1, 200)" :disabled="store.perR >= 200" aria-label="增加每轮焦点数">+</button></div></div>
-                <button class="start-engine-btn" @click="runSim" :disabled="store.ui.simRunning || !store.ui.step1Done">
-                  <span>{{ store.ui.simRunning ? '推演中…' : '启动推演' }}</span><span>→</span>
+                <template v-if="store.ui.b2 === 'paused'">
+                  <div class="sim-ctl-row">
+                    <button class="start-engine-btn" @click="runSim">
+                      <span>▶ 继续推演</span><span>→</span>
+                    </button>
+                    <button class="btn-secondary" @click="stopSim">⏹ 停止并保留</button>
+                  </div>
+                  <div class="sim-paused-hint" role="status">已暂停于 R{{ store.simRound || 0 }}/{{ store.rounds }}。已完成的结果已保留，可继续推演或进入报告。</div>
+                </template>
+                <template v-else-if="store.ui.simRunning">
+                  <div class="sim-ctl-row">
+                    <button class="btn-secondary" @click="pauseSim">⏸ 暂停</button>
+                    <button class="btn-secondary" @click="stopSim">⏹ 停止并保留</button>
+                  </div>
+                </template>
+                <button v-else class="start-engine-btn" @click="runSim" :disabled="!store.ui.step1Done">
+                  <span>启动推演</span><span>→</span>
                 </button>
                 <button v-if="store.assumptions.length && store.ui.step1Done" class="btn-secondary" style="display:block;margin:8px auto 0" @click="runComparison" :disabled="store.ui.simRunning">
                   ⚖ 对比推演（基线 vs 假设）
@@ -116,7 +131,10 @@
                 <div class="activity-feed" v-if="store.activityFeed.length || store.ui.simRunning">
                   <div class="activity-header">
                     <span>世界动态 · 实时</span>
-                    <span class="activity-progress" v-if="store.ui.simRunning || store.simRound > 0">R{{ store.simRound || 0 }}/{{ store.rounds }}</span>
+                    <span class="activity-progress" v-if="store.ui.simRunning || store.simRound > 0">
+                      R{{ store.simRound || 0 }}/{{ store.rounds }}
+                      <span class="sim-progress" aria-hidden="true"><span class="sim-progress-bar" :style="{ width: (store.rounds ? Math.min(store.simRound / store.rounds, 1) * 100 : 0) + '%' }"></span></span>
+                    </span>
                   </div>
                   <div class="activity-list" ref="activityRef">
                     <div v-if="!store.activityFeed.length" class="activity-empty">推演启动后，每个 agent 的动作会实时出现在这里…</div>
@@ -154,7 +172,10 @@
                   <span class="observe-kicker">OBSERVE OUTPUT</span>
                   <strong>报告与决策证据</strong>
                 </div>
-                <span class="observe-status" :class="store.ui.b3">{{ store.ui.b3 === 'success' ? 'READY' : store.ui.b3 === 'processing' ? 'BUILDING' : 'PENDING' }}</span>
+                <div class="observe-results-actions">
+                  <button type="button" class="btn-secondary view-report-btn" v-if="store.reportOutline" @click="reportViewOpen = true" title="全屏查看报告">📄 全屏报告 ↗</button>
+                  <span class="observe-status" :class="store.ui.b3">{{ store.ui.b3 === 'success' ? 'READY' : store.ui.b3 === 'processing' ? 'BUILDING' : 'PENDING' }}</span>
+                </div>
               </div>
 
               <!-- Report (streaming sections) -->
@@ -367,6 +388,8 @@
       </template>
     </main>
 
+    <ReportView v-if="reportViewOpen" @close="reportViewOpen = false" />
+
     <div v-if="initConfirmOpen" class="init-confirm-backdrop" @click.self="initConfirmOpen = false">
       <section class="init-confirm-card" role="dialog" aria-modal="true" aria-labelledby="init-confirm-title">
         <div class="init-confirm-icon" aria-hidden="true">↺</div>
@@ -387,7 +410,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { store, pushLog, resetWorld, toggleLock } from './store/sim';
-import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt } from './engine/simulate';
+import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim } from './engine/simulate';
 import { loadDemo } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
@@ -395,8 +418,11 @@ import HomeView from './components/HomeView.vue';
 import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
+import ReportView from './components/ReportView.vue';
+import { renderMarkdown } from './utils/markdown';
 
 const viewMode = ref('home');
+const reportViewOpen = ref(false);
 const health = reactive({ ok: false, model: '', keyConfigured: false, baseURL: '' });
 const history = reactive([]);
 const termRef = ref(null);
@@ -562,7 +588,7 @@ async function extractDecisions(summary) {
   } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
 }
 
-function badgeText(s) { return s === 'processing' ? 'Running' : s === 'success' ? 'Done' : 'Pending'; }
+function badgeText(s) { return s === 'processing' ? 'Running' : s === 'paused' ? 'Paused' : s === 'success' ? 'Done' : 'Pending'; }
 
 // WHAT IF：假设事件管理
 function addAssumption() {
@@ -618,53 +644,6 @@ function toggleSection(i) {
   const s = new Set(collapsedSections.value);
   if (s.has(i)) s.delete(i); else s.add(i);
   collapsedSections.value = s;
-}
-
-function normalizeSectionTitle(value) {
-  return String(value || '')
-    .replace(/^\s*#{1,6}\s*/, '')
-    .replace(/^\s*(?:(?:第\s*)?\d+|[一二三四五六七八九十百千万]+)[\s、.．)）:：-]+/, '')
-    .replace(/[\s、。；;，,：:!?！？]+$/g, '')
-    .replace(/\s+/g, '')
-    .toLocaleLowerCase();
-}
-
-function stripDuplicateSectionHeading(text, sectionTitle) {
-  const content = String(text || '');
-  const firstHeading = content.match(/^(?:[ \t]*\r?\n)*[ \t]*(#{1,6})[ \t]+([^\r\n]+)(?:\r?\n|$)/);
-  if (!firstHeading || normalizeSectionTitle(firstHeading[2]) !== normalizeSectionTitle(sectionTitle)) return content;
-  return content.slice(firstHeading[0].length).replace(/^(?:[ \t]*\r?\n)+/, '');
-}
-
-function renderMarkdown(text, sectionTitle) {
-  const content = stripDuplicateSectionHeading(text, sectionTitle);
-  if (!content) return '';
-  const escapeHtml = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const inline = (value) => escapeHtml(value)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
-  const lines = content.split(/\r?\n/);
-  const html = [];
-  let inList = false;
-  const closeList = () => {
-    if (inList) { html.push('</ul>'); inList = false; }
-  };
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) { closeList(); return; }
-    const heading = trimmed.match(/^#{2,3}\s+(.+)$/);
-    const item = trimmed.match(/^[-*]\s+(.+)$/);
-    if (heading) { closeList(); html.push(`<h3>${inline(heading[1])}</h3>`); return; }
-    if (item) {
-      if (!inList) { html.push('<ul>'); inList = true; }
-      html.push(`<li>${inline(item[1])}</li>`);
-      return;
-    }
-    closeList();
-    html.push(`<p>${inline(trimmed)}</p>`);
-  });
-  closeList();
-  return html.join('');
 }
 
 function showNode(e) {
