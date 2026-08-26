@@ -18,3 +18,7 @@ backend/data/experiments/*.json
 # IDE / Agent 工作目录（不进仓库）
 .claude/
 .workbuddy/
+
+# OMC 工具目录
+.omc/
+frontend/.omc/
