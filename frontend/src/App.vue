@@ -314,9 +314,9 @@
                     </div>
                     <div v-for="(m, i) in store.chat.messages" :key="i" class="chat-msg" :class="m.role">
                       <span class="chat-role">{{ m.role === 'user' ? '我' : chatTargetName }}</span>
-                      <span class="chat-text" v-html="renderMarkdown(m.content, '')"></span>
+                      <span v-if="m.role === 'assistant' && !m.content && store.chat.running" class="chat-text chat-thinking"><i></i><i></i><i></i><span>正在思考</span></span>
+                      <span v-else class="chat-text" v-html="renderMarkdown(m.content, '')"></span>
                     </div>
-                    <div v-if="store.chat.running" class="chat-msg assistant"><span class="chat-role">{{ chatTargetName }}</span><span class="chat-text chat-thinking"><i></i><i></i><i></i><span>正在思考</span></span></div>
                   </div>
                   <div class="chat-input-row">
                     <div class="chat-input-wrap"><input class="chat-input" v-model="chatInput" placeholder="输入关于这个节点的问题…" @keyup.enter="sendChat" :disabled="store.chat.running" /><span>Enter 发送</span></div>

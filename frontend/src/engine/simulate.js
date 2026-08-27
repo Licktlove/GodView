@@ -428,23 +428,46 @@ export function retrievalText() {
     '- 结构：' + r.communities + '；' + r.conflicts;
 }
 
+// 报告主笔视角：从场景包 decisionLens 取「为谁写、回应什么」，避免泛泛而谈
+function reportLens() {
+  const s = scn();
+  const lens = s.decisionLens || {};
+  return {
+    stakeholder: lens.stakeholder || (s.domain + '决策者'),
+    concerns: (lens.concerns || []).join('、') || '经营效率与风险',
+    framing: lens.framing || '围绕推演命题，给出可落地的依据与建议。',
+  };
+}
+
+// 推演命题：用户真正想回答的问题 = WHAT IF 种子 + 补充假设
+function propositionText() {
+  const seed = store.seed.trim();
+  const asm = assumptionsText();
+  return seed + (asm ? '\n\n补充假设：\n' + asm : '');
+}
+
 export async function genOutline(evidence) {
   const summary = graphSummary();
   const ev = evidence || retrievalText();
+  const lens = reportLens();
+  const prop = propositionText();
   const outline = await callChat(
-    [{ role: 'system', content: P('sysOutline') }, { role: 'user', content: `推演场景：${store.seed}\n推演终态：\n${summary}\n\n${ev}\n\n请规划报告大纲。输出JSON：{"title":"报告标题","summary":"一句话摘要","sections":[{"title":"章节标题"}]}` }],
-    { json: true, temperature: 0.5, max_tokens: 800 }
+    [{ role: 'system', content: P('sysOutline', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing, proposition: prop }) },
+     { role: 'user', content: `推演终态：\n${summary}\n\n图谱检索证据：\n${ev}\n\n请规划报告大纲（JSON）。` }],
+    { json: true, temperature: 0.5, max_tokens: 900 }
   );
   return outline;
 }
 
 export async function genSection(title, outline, prevDone) {
   const summary = graphSummary();
-  const sectionSummary = summary + '\n\n已有章节：' + (prevDone || []).map(s => s.slice(0, 100)).join('；');
+  const lens = reportLens();
+  const prop = propositionText();
+  const sectionSummary = summary + '\n\n已有章节：' + (prevDone || []).map(s => s.slice(0, 120)).join('；');
   const content = await callChat(
-    [{ role: 'system', content: P('sysSection') },
-     { role: 'user', content: `报告标题：${outline?.title || ''}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节内容（80-150字）。` }],
-    { json: false, temperature: 0.6, max_tokens: 1500 }
+    [{ role: 'system', content: P('sysSection', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing }) },
+     { role: 'user', content: `报告标题：${outline?.title || ''}\n核心命题：${prop}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n请撰写本章实质性内容（200-350字，Markdown）。` }],
+    { json: false, temperature: 0.6, max_tokens: 1200 }
   );
   return content || '（生成失败）';
 }
@@ -474,7 +497,14 @@ export async function genReport() {
     store.causalChains = await extractCausalChains(summary);
     store.decisions = await extractDecisions(summary);
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
-    store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告', fullContent: allContent };
+    const lens = reportLens();
+    store.report = {
+      verdict: outline.summary || outline.title,
+      confidence: 0.5,
+      confidence_note: '面向' + lens.stakeholder + '的决策推演报告',
+      proposition: propositionText(),
+      fullContent: allContent,
+    };
     store.ui.b3 = 'success'; store.ui.b4 = 'pending';
     pushLog('✓ 决策报告已生成', 'ok');
   } catch (err) {
