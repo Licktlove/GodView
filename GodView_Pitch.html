@@ -124,6 +124,20 @@
   .quote .grad{background:linear-gradient(100deg,#7DD3FC,var(--primary));
     -webkit-background-clip:text;background-clip:text;color:transparent}
 
+  /* 案例：命题框与关键数字带 */
+  .proposition{border-left:3px solid var(--primary);background:rgba(14,165,233,.06);
+    border-radius:0 12px 12px 0;padding:16px 20px;margin-top:22px;font-size:14px;
+    color:var(--muted);max-width:97%;line-height:1.6}
+  .proposition b{color:var(--text)}
+  .ecosystem{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+  .eco{font-family:var(--mono);font-size:12.5px;color:var(--primary-bright);
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:rgba(14,165,233,.05)}
+  .metrics{display:flex;gap:13px;flex-wrap:wrap;margin-top:24px}
+  .metric{flex:1;min-width:110px;background:linear-gradient(180deg,var(--surface),rgba(12,34,49,.6));
+    border:1px solid var(--line);border-radius:14px;padding:15px 10px;text-align:center}
+  .metric .v{font-family:var(--mono);font-size:clamp(20px,2.4vw,26px);font-weight:800;color:var(--primary-bright);line-height:1}
+  .metric .l{font-size:12px;color:var(--muted);margin-top:7px}
+
   /* 品牌字标 */
   .wordmark{font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
   .wordmark svg{height:26px;width:auto}
@@ -252,6 +266,41 @@
       <line x1="100" y1="100" x2="100" y2="30"/><line x1="50" y1="50" x2="150" y2="55"/>
       <line x1="60" y1="150" x2="155" y2="150"/>
     </svg>
+  </section>
+
+  <!-- 5.5 实战案例 -->
+  <section class="slide" data-title="案例">
+    <div class="reveal eyebrow">Case Study · 实战案例（以张文中经营理念为命题）</div>
+    <h2 class="reveal">文中博士的社区店 · <span class="grad">单点生态推演</span></h2>
+    <div class="reveal proposition">
+      “我经营一家社区 AI 新质零售门店，坚持<b>天天低价（EDLP）</b>、不靠高频促销；主打生鲜 / 熟食 / 烘焙等现制加工（占比 &gt;50%），用 <b>AI 选品·补货·出清</b> 控损，与供应商数字化协同降本，并给基层员工提薪分红。目标：在毛利率仅 <b>19%</b>、净利 <b>1–4%</b> 的硬约束下，把效率与品质双赢做实。周边新开一家硬折扣店，以极致性价比抢刚需客流。”
+    </div>
+    <div class="grid g4 reveal">
+      <div class="card"><div class="num">01</div><h3>EDLP 天天低价</h3>
+        <p>取消频繁促销、回归天天低价，靠<b>效率</b>而非噱头赢客，不陷价格战泥潭。</p></div>
+      <div class="card"><div class="num">02</div><h3>AI 全链条控损</h3>
+        <p>AI 选品 / 补货 / 出清，库存周转与损耗改善——物美实测损耗 <span class="accent">−30%</span>。</p></div>
+      <div class="card"><div class="num">03</div><h3>零供协同降本</h3>
+        <p>与供应商共建品质、共降流通成本、共拓增长，<b>不挤压</b>其合理利润。</p></div>
+      <div class="card"><div class="num">04</div><h3>以人为本</h3>
+        <p>基层员工薪资 <span class="accent">+30~50%</span> 分红，员工好 → 顾客好 → 信任闭环。</p></div>
+    </div>
+    <div class="reveal" style="margin-top:22px">
+      <div style="font-family:var(--mono);font-size:12px;letter-spacing:1px;color:var(--primary-bright);text-transform:uppercase">推演将长出这张生态图谱</div>
+      <div class="ecosystem">
+        <span class="eco">顾客分群（价格 / 品质 / 沉睡）</span><span class="eco">社区门店</span>
+        <span class="eco">基层员工</span><span class="eco">头部供应商</span><span class="eco">中小供应商</span>
+        <span class="eco">硬折扣竞品</span><span class="eco">生鲜 / 烘焙 / 熟食</span><span class="eco">KPI 簇</span>
+      </div>
+    </div>
+    <div class="reveal metrics">
+      <div class="metric"><div class="v">19%</div><div class="l">公开毛利率</div></div>
+      <div class="metric"><div class="v">1–4%</div><div class="l">净利率区间</div></div>
+      <div class="metric"><div class="v">+30~50%</div><div class="l">基层员工薪资</div></div>
+      <div class="metric"><div class="v">−30%</div><div class="l">损耗改善</div></div>
+      <div class="metric"><div class="v">17×</div><div class="l">调改店熟食增长</div></div>
+    </div>
+    <div class="reveal quote" style="margin-top:22px">报告会逐章回应他的核心命题——<span class="grad">「效率与人文，能不能双赢」</span>，让他看在点子上。</div>
   </section>
 
   <!-- 6 技术架构 -->
