@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GodView · 零售经营的上帝视角 — 创新大赛路演</title>
+<style>
+  :root{
+    --primary:#0EA5E9; --primary-bright:#38BDF8; --ink:#0369A1; --ink-deep:#075985;
+    --accent:#F43F5E; --bg:#060B14; --bg2:#0E2A4D; --surface:#0C2231; --surface2:#14324A;
+    --text:#E6F4FB; --muted:#9FC3D8; --line:rgba(125,211,252,.18);
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--text); background:var(--bg);
+    overflow:hidden; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  /* 点阵星空背景 */
+  .bg-dots{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:radial-gradient(circle, rgba(14,165,233,.16) 1px, transparent 1px);
+    background-size:22px 22px; opacity:.55;
+  }
+  .bg-glow{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(14,165,233,.22), transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, rgba(7,89,133,.28), transparent 55%);
+  }
+  /* 进度条 */
+  .progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:50;
+    background:linear-gradient(90deg,var(--primary),var(--primary-bright));
+    box-shadow:0 0 12px rgba(14,165,233,.7); transition:width .35s ease}
+  /* 右侧进度点 */
+  .dots{position:fixed;right:26px;top:50%;transform:translateY(-50%);z-index:50;
+    display:flex;flex-direction:column;gap:11px}
+  .dots button{width:9px;height:9px;border-radius:50%;border:1px solid var(--line);
+    background:transparent;cursor:pointer;padding:0;transition:.25s}
+  .dots button.on{background:var(--primary);border-color:var(--primary);
+    box-shadow:0 0 10px rgba(14,165,233,.8);transform:scale(1.25)}
+  /* 页码 */
+  .pageno{position:fixed;right:24px;bottom:20px;z-index:50;font-family:var(--mono);
+    font-size:12px;color:var(--muted);letter-spacing:.5px}
+  .hint{position:fixed;left:24px;bottom:20px;z-index:50;font-size:12px;color:var(--muted);
+    letter-spacing:.3px;opacity:.8}
+  .hint kbd{font-family:var(--mono);background:var(--surface2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;color:var(--text)}
+
+  .deck{position:relative;z-index:1;height:100vh;width:100vw}
+  .slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+    padding:7vh 9vw;opacity:0;visibility:hidden;transform:translateY(26px) scale(.99);
+    transition:opacity .5s ease,transform .5s ease,visibility .5s;
+    overflow:hidden}
+  .slide.active{opacity:1;visibility:visible;transform:none}
+  .slide.active .reveal{animation:up .6s cubic-bezier(.2,.7,.2,1) both}
+  .slide.active .reveal:nth-child(2){animation-delay:.08s}
+  .slide.active .reveal:nth-child(3){animation-delay:.16s}
+  .slide.active .reveal:nth-child(4){animation-delay:.24s}
+  .slide.active .reveal:nth-child(5){animation-delay:.32s}
+  .slide.active .reveal:nth-child(6){animation-delay:.40s}
+  @keyframes up{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+  .eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:3px;text-transform:uppercase;
+    color:var(--primary-bright);margin-bottom:18px}
+  h1{font-size:clamp(34px,5.4vw,64px);line-height:1.08;font-weight:800;letter-spacing:-.5px}
+  h1 .grad{background:linear-gradient(100deg,#7DD3FC,var(--primary) 55%,#0369A1);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:clamp(26px,3.6vw,42px);font-weight:800;letter-spacing:-.3px;margin-bottom:6px}
+  .sub{color:var(--muted);font-size:clamp(15px,1.5vw,19px);max-width:60ch;margin-top:14px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--primary-bright);
+    border:1px solid var(--line);border-radius:999px;padding:4px 12px;margin-top:18px}
+
+  /* 卡片网格 */
+  .grid{display:grid;gap:18px;margin-top:34px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:linear-gradient(180deg,var(--surface),rgba(12,34,49,.65));
+    border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px;
+    position:relative;overflow:hidden;transition:.25s}
+  .card:hover{border-color:rgba(56,189,248,.5);transform:translateY(-3px)}
+  .card::before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;
+    background:linear-gradient(90deg,var(--primary),transparent)}
+  .card .num{font-family:var(--mono);font-size:13px;color:var(--primary-bright);opacity:.8}
+  .card h3{font-size:18px;margin:8px 0 8px;font-weight:700}
+  .card p{color:var(--muted);font-size:13.5px;line-height:1.55}
+  .card .accent{color:var(--accent);font-weight:700}
+
+  /* 三步叙事 */
+  .flow{display:flex;align-items:stretch;gap:0;margin-top:30px;flex-wrap:wrap}
+  .step{flex:1;min-width:160px;background:linear-gradient(180deg,var(--surface),rgba(12,34,49,.6));
+    border:1px solid var(--line);border-radius:14px;padding:20px;position:relative}
+  .step .k{font-family:var(--mono);font-size:12px;color:var(--primary-bright);letter-spacing:1px}
+  .step .t{font-size:20px;font-weight:800;margin:6px 0 8px}
+  .step .d{color:var(--muted);font-size:13px}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--primary);
+    font-size:26px;padding:0 10px;font-family:var(--mono)}
+
+  /* 列表 */
+  .list{margin-top:26px;display:flex;flex-direction:column;gap:14px;max-width:78ch}
+  .li{display:flex;gap:14px;align-items:flex-start}
+  .li .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:8px;
+    background:var(--primary);box-shadow:0 0 10px rgba(14,165,233,.7)}
+  .li .x{font-weight:700}
+  .li .y{color:var(--muted);font-size:14.5px}
+
+  /* 对比表 */
+  .vs{margin-top:28px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .vs table{width:100%;border-collapse:collapse;font-size:14px}
+  .vs th,.vs td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  .vs th{background:var(--surface2);font-family:var(--mono);font-size:12px;letter-spacing:1px;
+    color:var(--primary-bright);text-transform:uppercase}
+  .vs td{color:var(--muted)}
+  .vs td b{color:var(--text)}
+  .vs tr:last-child td{border-bottom:none}
+  .vs .us{background:rgba(14,165,233,.08)}
+  .vs .us td{color:var(--text)}
+
+  .quote{font-size:clamp(22px,3vw,34px);font-weight:700;line-height:1.3;
+    border-left:3px solid var(--primary);padding-left:22px;margin-top:24px;max-width:24ch}
+  .quote .grad{background:linear-gradient(100deg,#7DD3FC,var(--primary));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* 品牌字标 */
+  .wordmark{font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+  .wordmark svg{height:26px;width:auto}
+  .brand-lg{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--muted);
+    text-transform:uppercase}
+
+  /* 装饰图谱 */
+  .deco{position:absolute;right:-60px;bottom:-60px;width:420px;height:420px;opacity:.32;z-index:-1}
+  .deco2{position:absolute;left:-80px;top:-60px;width:360px;height:360px;opacity:.22;z-index:-1}
+
+  @media (max-width:860px){
+    .g3,.g4{grid-template-columns:repeat(2,1fr)}
+    .g2{grid-template-columns:1fr}
+    .slide{padding:8vh 7vw}
+    .deco,.deco2{display:none}
+    .hint{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .slide.active .reveal{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="bg-dots"></div>
+<div class="progress" id="progress"></div>
+<nav class="dots" id="dots"></nav>
+<div class="pageno" id="pageno"></div>
+<div class="hint">翻页 <kbd>→</kbd>/<kbd>空格</kbd> · 回看 <kbd>←</kbd> · 跳页点右侧圆点</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 封面 -->
+  <section class="slide" data-title="封面">
+    <svg class="deco" viewBox="0 0 200 200" fill="none" stroke="#0EA5E9" stroke-width="1.2">
+      <circle cx="100" cy="100" r="20"/><circle cx="40" cy="60" r="10"/><circle cx="160" cy="70" r="12"/>
+      <circle cx="55" cy="150" r="9"/><circle cx="150" cy="155" r="11"/>
+      <line x1="100" y1="100" x2="40" y2="60"/><line x1="100" y1="100" x2="160" y2="70"/>
+      <line x1="100" y1="100" x2="55" y2="150"/><line x1="100" y1="100" x2="150" y2="155"/>
+      <line x1="40" y1="60" x2="160" y2="70"/><line x1="55" y1="150" x2="150" y2="155"/>
+    </svg>
+    <div class="reveal eyebrow">Dmall Future Market · 创新大赛路演</div>
+    <h1 class="reveal">零售经营的<span class="grad">上帝视角</span></h1>
+    <div class="reveal sub" style="font-size:clamp(16px,1.8vw,22px);color:var(--text);margin-top:20px">
+      <b>GodView</b> — LLM 驱动的多智能体图谱推演沙盘
+    </div>
+    <div class="reveal quote" style="border:none;padding:0;margin-top:30px;max-width:none;font-size:clamp(18px,2.2vw,26px)">
+      让每一个经营决策，都<span class="grad">先在未来发生一次</span>。
+    </div>
+    <div class="reveal" style="margin-top:40px;display:flex;gap:26px;align-items:center;color:var(--muted);font-size:14px">
+      <span>赛道：AI + 零售 · 智能决策</span>
+      <span>·</span>
+      <span>团队：多点 Dmall</span>
+    </div>
+  </section>
+
+  <!-- 2 痛点 -->
+  <section class="slide" data-title="痛点">
+    <div class="reveal eyebrow">Problem · 痛点与洞察</div>
+    <h2 class="reveal">今天的零售决策，<span style="color:var(--accent)">还是黑箱</span></h2>
+    <div class="list">
+      <div class="li reveal"><span class="dot"></span><div><div class="x">报表只给静态数字</div>
+        <div class="y">BI / 大屏呈现的是"结果"，经营推理过程不可见、不可问、不可回溯。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">大模型是黑箱对话</div>
+        <div class="y">问一句答一段，但因果从哪来、谁影响了谁、会怎样演化，一概看不见。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">试错成本极高</div>
+        <div class="y">新店选址、价格战、旺季备货——每次决策都是真金白银的"现场实验"。</div></div></div>
+    </div>
+    <div class="reveal quote">经营者脑子里有一张因果网，<span class="grad">却没人把它画出来</span>。</div>
+  </section>
+
+  <!-- 3 解决方案 -->
+  <section class="slide" data-title="解决方案">
+    <div class="reveal eyebrow">Solution · 一句话定位</div>
+    <h2 class="reveal">GodView = 零售经营的<span class="grad">透明沙盘</span></h2>
+    <div class="reveal sub">输入一段经营假设，它会长出一张会演化、能解释、可访谈的零售因果图谱。</div>
+    <div class="flow">
+      <div class="step reveal"><div class="k">WHAT IF</div><div class="t">假设</div>
+        <div class="d">一段门店 / 经营叙事 + 假设事件，构建世界种子</div></div>
+      <div class="arrow reveal">→</div>
+      <div class="step reveal"><div class="k">SIMULATE</div><div class="t">涌现</div>
+        <div class="d">多智能体并行推演，因果像涟漪在图上生长</div></div>
+      <div class="arrow reveal">→</div>
+      <div class="step reveal"><div class="k">OBSERVE</div><div class="t">洞察</div>
+        <div class="d">真流式推演报告 + 图谱检索证据</div></div>
+      <div class="arrow reveal">↺</div>
+      <div class="step reveal" style="border-color:rgba(244,63,94,.4)"><div class="k" style="color:var(--accent)">INTERVIEW</div>
+        <div class="t">访谈<span style="color:var(--accent)">·常驻</span></div>
+        <div class="d">点任意节点，以它的 persona 对话</div></div>
+    </div>
+  </section>
+
+  <!-- 4 核心创新点 -->
+  <section class="slide" data-title="创新点">
+    <div class="reveal eyebrow">Innovation · 为什么值得拿奖</div>
+    <h2 class="reveal">四个核心创新点</h2>
+    <div class="grid g4">
+      <div class="card reveal"><div class="num">01</div><h3>假设即世界</h3>
+        <p>文本 → 大模型<span class="accent">直抽</span>实体与关系，自生长成知识图谱；<b>零外部图数据库依赖</b>，轻量替代 Zep 类方案。</p></div>
+      <div class="card reveal"><div class="num">02</div><h3>多智能体涌现</h3>
+        <p>每个节点都是带 persona 的 agent，受世界局势驱动并行反应，趋势如<span class="accent">涟漪在图上传导</span>；稳态早停收敛。</p></div>
+      <div class="card reveal"><div class="num">03</div><h3>可访谈的节点</h3>
+        <p>点开"价格敏感型顾客""隔壁竞品"就能<span class="accent">采访</span>它，用 persona + 推演行为记忆作答；对话时图谱保持全局视野。</p></div>
+      <div class="card reveal"><div class="num">04</div><h3>引擎与领域解耦</h3>
+        <p>推理引擎恒定，领域知识外置为<span class="accent">场景包</span>；零售打磨深度，亦可横向扩展到供应链 / 宏观 / AI 产业。</p></div>
+    </div>
+  </section>
+
+  <!-- 5 产品演示 -->
+  <section class="slide" data-title="演示">
+    <div class="reveal eyebrow">Demo · 90 秒记住这 3 个画面</div>
+    <h2 class="reveal">一个假设，长出一整个世界</h2>
+    <div class="grid g3">
+      <div class="card reveal"><div class="num">画面 ①</div><h3>生长</h3>
+        <p>输入"新商圈开社区店，对面有连锁竞品"→ 图谱长出顾客分群、门店、竞品、供应商等 agent 与关系。</p></div>
+      <div class="card reveal"><div class="num">画面 ②</div><h3>采访</h3>
+        <p>点开"价格敏感型顾客"→ 问"竞品降价你会怎么变"，它以角色口吻作答，并记得自己的推演行为。</p></div>
+      <div class="card reveal"><div class="num">画面 ③</div><h3>报告</h3>
+        <p>点生成 → 真流式吐出经营推演报告，因果链（降价→客流迁移→毛利变化）在图上同步高亮。</p></div>
+    </div>
+    <svg class="deco2" viewBox="0 0 200 200" fill="none" stroke="#38BDF8" stroke-width="1">
+      <circle cx="100" cy="100" r="16"/><circle cx="50" cy="50" r="8"/><circle cx="150" cy="55" r="9"/>
+      <circle cx="60" cy="150" r="7"/><circle cx="155" cy="150" r="10"/><circle cx="100" cy="30" r="6"/>
+      <line x1="100" y1="100" x2="50" y2="50"/><line x1="100" y1="100" x2="150" y2="55"/>
+      <line x1="100" y1="100" x2="60" y2="150"/><line x1="100" y1="100" x2="155" y2="150"/>
+      <line x1="100" y1="100" x2="100" y2="30"/><line x1="50" y1="50" x2="150" y2="55"/>
+      <line x1="60" y1="150" x2="155" y2="150"/>
+    </svg>
+  </section>
+
+  <!-- 6 技术架构 -->
+  <section class="slide" data-title="架构">
+    <div class="reveal eyebrow">Tech · 技术架构</div>
+    <h2 class="reveal">轻量、可流式、密钥安全</h2>
+    <div class="flow">
+      <div class="step reveal"><div class="k">前端</div><div class="t">Vue 3 + Vite + D3</div>
+        <div class="d">力导向图谱、点阵星空、实时活动流、键盘可访谈</div></div>
+      <div class="arrow reveal">↔</div>
+      <div class="step reveal"><div class="k">后端</div><div class="t">Express + SSE</div>
+        <div class="d">LLM 代理、真流式透传、单文件实验持久化（无数据库）</div></div>
+      <div class="arrow reveal">↔</div>
+      <div class="step reveal"><div class="k">LLM</div><div class="t">OpenAI 兼容 API</div>
+        <div class="d">默认 Dmall 内部 AI 路由器 · qwen3.6-flash</div></div>
+    </div>
+    <div class="list" style="margin-top:30px">
+      <div class="li reveal"><span class="dot"></span><div><div class="x">密钥只在服务端</div>
+        <div class="y">后端代理 LLM 调用，根治 CORS 且密钥绝不暴露到前端。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">真流式体验</div>
+        <div class="y">SSE 逐 token 渲染，推演活动与报告即时可见，首 token 即有反馈。</div></div></div>
+    </div>
+  </section>
+
+  <!-- 7 应用场景 -->
+  <section class="slide" data-title="场景">
+    <div class="reveal eyebrow">Scenarios · 应用场景</div>
+    <h2 class="reveal">场景包矩阵 = 零售决策的 what-if 实验室</h2>
+    <div class="grid g4">
+      <div class="card reveal" style="border-color:rgba(14,165,233,.5)"><div class="num">主场景</div><h3>零售经营</h3>
+        <p>新店爬坡 · 价格战 · 旺季备货 · 会员流失 · 连锁蚕食，一键推演。</p></div>
+      <div class="card reveal"><div class="num">02</div><h3>供应链韧性</h3>
+        <p>断供冲击、产能调配、库存与履约联动推演。</p></div>
+      <div class="card reveal"><div class="num">03</div><h3>宏观经济</h3>
+        <p>利率 / 通胀 / 汇率 / 消费信心对经营的传导。</p></div>
+      <div class="card reveal"><div class="num">04</div><h3>AI 产业</h3>
+        <p>从模型之争到框架之战的产业动态推演。</p></div>
+    </div>
+    <div class="reveal tag">同一引擎，换场景 = 换一个场景包输入</div>
+  </section>
+
+  <!-- 8 价值 -->
+  <section class="slide" data-title="价值">
+    <div class="reveal eyebrow">Value · 价值与效益</div>
+    <h2 class="reveal">从"经验决策"到<span class="grad">"推演决策"</span></h2>
+    <div class="grid g3">
+      <div class="card reveal"><div class="num">可见</div><h3>决策可解释</h3>
+        <p>因果链一键高亮，谁影响谁、为何演化，全程可追溯。</p></div>
+      <div class="card reveal"><div class="num">可问</div><h3>随时访谈</h3>
+        <p>任意角色可对话，把"为什么"问到底，而非吞下黑箱结论。</p></div>
+      <div class="card reveal"><div class="num">可试</div><h3>低成本试错</h3>
+        <p>在沙盘里先跑十次价格战，再决定真实世界里要不要打。</p></div>
+    </div>
+    <div class="reveal quote">把昂贵的"现场实验"，变成便宜的<span class="grad">"未来彩排"</span>。</div>
+  </section>
+
+  <!-- 9 竞争壁垒 -->
+  <section class="slide" data-title="壁垒">
+    <div class="reveal eyebrow">Edge · 差异化壁垒</div>
+    <h2 class="reveal">我们不只是"又一个 AI 工具"</h2>
+    <div class="vs reveal">
+      <table>
+        <tr><th>对比</th><th>传统 BI / 报表</th><th>通用大模型对话</th><th>社会模拟(MiroFish/Zep)</th></tr>
+        <tr><td><b>呈现</b></td><td>静态数字</td><td>黑箱文本</td><td>通用社会</td></tr>
+        <tr><td><b>经营推理</b></td><td>不可见</td><td>不可溯</td><td>不贴经营</td></tr>
+        <tr class="us"><td><b>GodView</b></td><td>活地图·可俯瞰</td><td>透明·可访谈</td><td>可驾驶·贴零售</td></tr>
+      </table>
+    </div>
+    <div class="reveal quote" style="margin-top:28px">MiroFish 让你"见证"一个社会，<span class="grad">GodView 让你"驾驶"一家门店的生态</span>。</div>
+  </section>
+
+  <!-- 10 商业模式 -->
+  <section class="slide" data-title="模式">
+    <div class="reveal eyebrow">Business · 商业模式与可行性</div>
+    <h2 class="reveal">先在 Dmall 跑通，再对外复制</h2>
+    <div class="list">
+      <div class="li reveal"><span class="dot"></span><div><div class="x">内部落地</div>
+        <div class="y">多点 Dmall 连锁门店经营推演——新店选址、价格策略、备货节奏的真实预演。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">对外服务</div>
+        <div class="y">品牌方、连锁总部、商圈运营——把决策推演变成可订阅的能力。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">场景包矩阵复制</div>
+        <div class="y">零售决策的"推演操作系统"：新增一个行业，只需新增一个场景包。</div></div></div>
+    </div>
+  </section>
+
+  <!-- 11 团队进展 -->
+  <section class="slide" data-title="进展">
+    <div class="reveal eyebrow">Progress · 团队与进展</div>
+    <h2 class="reveal">我们已经做出来了</h2>
+    <div class="grid g4">
+      <div class="card reveal"><div class="num">✓</div><h3>4 个场景包</h3><p>零售 / 供应链 / 宏观 / AI 产业已注册可用。</p></div>
+      <div class="card reveal"><div class="num">✓</div><h3>完整工作台</h3><p>图谱 + 活动流 + 访谈 + KPI 实时曲线。</p></div>
+      <div class="card reveal"><div class="num">✓</div><h3>流式报告</h3><p>ReACT 式检索图谱证据，SSE 真流式输出。</p></div>
+      <div class="card reveal"><div class="num">✓</div><h3>数据持久化</h3><p>实验快照保存回看，刷新不丢失。</p></div>
+    </div>
+    <div class="reveal tag">团队：多点 Dmall — 零售数字化一线出身</div>
+  </section>
+
+  <!-- 12 路线图 -->
+  <section class="slide" data-title="路线图">
+    <div class="reveal eyebrow">Roadmap · 下一步</div>
+    <h2 class="reveal">让推演更"硬"</h2>
+    <div class="list">
+      <div class="li reveal"><span class="dot"></span><div><div class="x">涌现开 / 关对照实验</div>
+        <div class="y">量化"推演 vs 直觉"，用数据证明价值，而非只靠观感。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">深耕零售子场景</div>
+        <div class="y">价格战、旺季备货等专项场景包，强化零售深度而非广度。</div></div></div>
+      <div class="li reveal"><span class="dot"></span><div><div class="x">多端 & 报告增强</div>
+        <div class="y">报告全屏导出、移动端轻量预览，降低评委与用户的使用门槛。</div></div></div>
+    </div>
+  </section>
+
+  <!-- 13 结语 -->
+  <section class="slide" data-title="结语">
+    <div class="reveal eyebrow" style="text-align:center">Thank You</div>
+    <h1 class="reveal" style="text-align:center">让每一个经营决策，<br/><span class="grad">都先在未来发生一次</span></h1>
+    <div class="reveal" style="text-align:center;margin-top:34px;color:var(--muted);font-size:18px">
+      GodView · Dmall Future Market
+    </div>
+    <div class="reveal" style="text-align:center;margin-top:30px;display:flex;gap:18px;justify-content:center;align-items:center">
+      <span class="brand-lg">多点 Dmall</span>
+      <span style="color:var(--primary)">·</span>
+      <span class="brand-lg">DECISION SIMULATION CONSOLE</span>
+    </div>
+    <div class="reveal" style="text-align:center;margin-top:40px;color:var(--muted);font-size:15px">Q &amp; A　|　欢迎交流</div>
+  </section>
+
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsBox=document.getElementById('dots');
+  const progress=document.getElementById('progress');
+  const pageno=document.getElementById('pageno');
+  let i=0;
+  slides.forEach((s,k)=>{
+    const b=document.createElement('button');
+    b.setAttribute('aria-label',s.dataset.title||('第'+(k+1)+'屏'));
+    b.addEventListener('click',()=>go(k));
+    dotsBox.appendChild(b);
+  });
+  const dots=[...dotsBox.children];
+  function go(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    progress.style.width=((i+1)/slides.length*100)+'%';
+    pageno.textContent=String(i+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  }
+  window.addEventListener('keydown',e=>{
+    if(['ArrowRight',' ','PageDown'].includes(e.key)){e.preventDefault();go(i+1);}
+    else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(i-1);}
+    else if(e.key==='Home'){go(0);}
+    else if(e.key==='End'){go(slides.length-1);}
+    else if(/^[0-9]$/.test(e.key)){const t=+e.key-1; if(t<slides.length)go(t);}
+  });
+  document.addEventListener('click',e=>{
+    if(e.target.closest('.dots')||e.target.closest('.slide'))return;
+  });
+  // 触屏：左右滑动翻页
+  let sx=0;
+  document.addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  document.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    if(Math.abs(dx)>50) go(dx<0?i+1:i-1);
+  },{passive:true});
+  go(0);
+</script>
+</body>
+</html>
