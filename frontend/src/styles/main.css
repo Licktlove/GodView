@@ -460,6 +460,8 @@ input:checked + .slider:before { transform: translateX(14px); }
 .activity-item.effect .activity-dot { background: #0fa336; }
 .activity-item.born .activity-dot { background: #ff9f0a; }
 .activity-item.born .activity-text { color: var(--ink); font-weight: 500; }
+.activity-item.mind .activity-dot { background: #bf5af2; }
+.activity-item.mind .activity-text { color: #8e44ad; font-style: italic; }
 .activity-text { flex: 1; }
 
 /* 活动流交错淡入动画 */

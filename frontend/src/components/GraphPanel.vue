@@ -4,6 +4,10 @@
       <span class="panel-title">知识图谱</span>
       <div class="header-tools">
         <input class="graph-search" v-model="searchQuery" placeholder="搜索实体…" @input="applyEmphasis" />
+        <div class="seg" v-if="store.growth.length > 1">
+          <button class="seg-btn" :class="{ active: layoutMode === 'force' }" @click="setLayout('force')">力导</button>
+          <button class="seg-btn" :class="{ active: layoutMode === 'timeline' }" title="按轮次回放推演生长过程" @click="setLayout('timeline')">回放</button>
+        </div>
         <button class="tool-btn" :class="{ active: hideIsolated }" title="隐藏没有连边的孤立节点" @click="toggleHideIsolated">隐藏孤立</button>
         <button class="tool-btn" :class="{ 'path-on': pathMode }" title="点选两个节点高亮最短路径" @click="togglePathMode">路径</button>
         <button class="tool-btn" title="重新布局" @click="renderGraph"><span class="icon-spin">↻</span></button>
@@ -13,7 +17,8 @@
     <div class="graph-toolbar" v-if="layoutMode === 'timeline' || pathMode || pathSource">
       <template v-if="layoutMode === 'timeline'">
         <span class="tb-label">回放</span>
-        <input class="tl-range" type="range" min="0" :max="maxRound" v-model.number="timelineRound" @input="renderGraph" />
+        <button class="tool-btn tl-play" :class="{ active: playing }" @click="togglePlay" :title="playing ? '暂停回放' : '自动播放推演生长过程'">{{ playing ? '⏸' : '▶' }}</button>
+        <input class="tl-range" type="range" min="0" :max="maxRound" v-model.number="timelineRound" @input="onSliderInput" />
         <span class="tl-val">R{{ timelineRound }} / {{ maxRound }}</span>
       </template>
       <template v-if="pathMode || pathSource">
@@ -73,6 +78,17 @@
             <div class="detail-row" v-if="selectedNode.trend"><span class="detail-label">趋势</span><span class="detail-value">{{ selectedNode.trend }}</span></div>
           </template>
           <div class="detail-row"><span class="detail-label">重要性</span><span class="detail-value" style="font-family:var(--font-mono);font-weight:700;color:var(--orange)">{{ (selectedNode._imp || 0).toFixed(0) }}</span></div>
+          <!-- Memory evolution -->
+          <div class="detail-section" v-if="selectedNode._memory">
+            <span class="section-label">🧠 演化记忆 <span style="color:#999;font-weight:400">（截至 R{{ selectedNode._memory.lastRound }}）</span></span>
+            <div class="detail-row"><span class="detail-value" style="font-size:11px">{{ selectedNode._memory.summary }}</span></div>
+            <div class="detail-row" v-if="selectedNode._memory.mood && selectedNode._memory.mood !== '平静'">
+              <span class="detail-label">心境</span><span class="detail-value" style="color:var(--orange)">{{ selectedNode._memory.mood }}</span>
+            </div>
+            <div class="detail-row" v-if="selectedNode._memory.evolveNote">
+              <span class="detail-label">变化</span><span class="detail-value">{{ selectedNode._memory.evolveNote }}</span>
+            </div>
+          </div>
           <!-- Episodes -->
           <div class="detail-section" v-if="selectedNode._episodes?.length">
             <span class="section-label">行为记录 ({{ selectedNode._episodes.length }})</span>
@@ -327,6 +343,31 @@ function computePath() {
 function setLayout(m) {
   layoutMode.value = m;
   if (m === 'timeline' && timelineRound.value < maxRound.value) timelineRound.value = maxRound.value;
+  if (m !== 'timeline') stopPlay();
+  renderGraph();
+}
+
+// ---- Timeline auto-play ----
+const playing = ref(false);
+let playTimer = null;
+function togglePlay() { playing.value ? stopPlay() : startPlay(); }
+function startPlay() {
+  if (playing.value) return;
+  playing.value = true;
+  if (timelineRound.value >= maxRound.value) timelineRound.value = 0; // 从头播放
+  renderGraph();
+  playTimer = setInterval(() => {
+    if (timelineRound.value >= maxRound.value) { stopPlay(); return; }
+    timelineRound.value++;
+    renderGraph();
+  }, 1100);
+}
+function stopPlay() {
+  playing.value = false;
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+}
+function onSliderInput() {
+  if (playing.value) stopPlay();
   renderGraph();
 }
 
@@ -393,6 +434,7 @@ function renderGraph() {
         return o ? { name: o.name, relation: x.relation, round: x.round } : null;
       }).filter(Boolean),
       _episodes: store.episodes[e.id] || [],
+      _memory: e.memory || null,
     };
   });
 
@@ -601,7 +643,7 @@ onMounted(() => {
     if (containerRef.value) resizeObserver.observe(containerRef.value);
   });
 });
-onBeforeUnmount(() => { if (simulation) simulation.stop(); if (resizeObserver) resizeObserver.disconnect(); if (rerenderTimer) clearTimeout(rerenderTimer); });
+onBeforeUnmount(() => { stopPlay(); if (simulation) simulation.stop(); if (resizeObserver) resizeObserver.disconnect(); if (rerenderTimer) clearTimeout(rerenderTimer); });
 
 watch(() => [store.entities.length, store.edges.length], () => {
   // #7 防抖合并重绘：同轮内多段新增只触发一次，避免每次 force 重建导致跳动
@@ -638,4 +680,6 @@ watch(() => store.chat.target, () => { if (node) applyEmphasis(); });
 .tl-range { flex: 1; min-width: 140px; accent-color: var(--ink); }
 .tl-val { font-size: 11px; color: var(--mute); min-width: 64px; text-align: right; font-family: var(--font-mono); }
 .tb-clear { padding: 2px 8px; }
+.tl-play { min-width: 28px; justify-content: center; font-size: 11px; }
+.tl-play.active { background: var(--ink); color: var(--on-dark); border-color: var(--ink); }
 </style>

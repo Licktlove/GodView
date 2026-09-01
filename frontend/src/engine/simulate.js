@@ -6,8 +6,9 @@ import { getScenario } from '../scenarios';
 import { typeColorFor } from './palette';
 import { predictKPIs } from './kpi';
 import { fillEntityQuota, uniqueEntities } from './entityQuota';
+import { shouldSummarize, evolveMemories, memoryBlock } from './memory';
 
-export { computeImportance, typeColorFor };
+export { computeImportance, typeColorFor, memoryBlock };
 
 function scn() { return store.scenario; }
 function isPersonType(type) {
@@ -249,8 +250,8 @@ async function runRound(round, total) {
     try {
       data = await callChat(
         [{ role: 'system', content: P('sysRound') },
-         { role: 'user', content: `世界局势：\n${ctx}\n\n焦点 agent：${e.name}（类型：${e.type}；人格：${e.persona || '—'}；目标：${e.goal || '—'}）\n轮次 ${round}/${total}。` +
-           `\n请基于它与邻居的关系及世界局势做出反应。输出JSON：{"interactions":[{"from":"焦点名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"对关键指标的影响简述"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型","persona":"一句话","goal":"核心目标"}]}` }],
+         { role: 'user', content: `世界局势：\n${ctx}\n\n焦点 agent：${e.name}（类型：${e.type}；人格：${e.persona || '—'}；目标：${e.goal || '—'}）${memoryBlock(e)}\n轮次 ${round}/${total}。` +
+           `\n请基于它与邻居的关系及世界局势做出反应；若它有演化记忆，其心境与立场应与记忆保持一致。输出JSON：{"interactions":[{"from":"焦点名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"对关键指标的影响简述"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型","persona":"一句话","goal":"核心目标"}]}` }],
         { json: true, temperature: 0.9, max_tokens: 1500 }
       );
     } catch (err) { pushLog(`轮${round} ${e.name} 交互失败：${err.message}`, 'err'); return; }
@@ -329,6 +330,7 @@ export async function runSim() {
   }
   let endedByPause = false;
   let endedByStop = false;
+  let lastMemoryRound = isResume ? Math.max(0, store.simRound - 1) : 0;
   try {
     // ⑤ 稳态早停：连续 2 轮零新增关系（且已跑 >= 3 轮）→ 世界收敛，提前结束省 token
     for (let r = startRound; r <= total; r++) {
@@ -339,6 +341,10 @@ export async function runSim() {
       const added = await runRound(r, total);
       // KPI 数值预测：每轮推演后估算关键指标
       predictKPIs(r).catch(() => {});
+      // 🧠 记忆演化：每 2 轮把新行为压缩为记忆，人格随推演变化
+      if (shouldSummarize(r)) {
+        lastMemoryRound = await evolveMemories(lastMemoryRound);
+      }
       if (added === 0) stable++; else stable = 0;
       if (r >= 3 && stable >= 2) {
         pushLog(`✓ 连续 ${stable} 轮无新关系，世界在第 ${r} 轮达到稳态，提前收敛`, 'ok');
@@ -536,36 +542,6 @@ async function extractDecisions(summary) {
     pushLog('生成决策建议 ' + decisions.length + ' 条', 'ac');
     return decisions;
   } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
-}
-
-// ============ Step 4: Interview —— 与单个 agent 对话 ============
-// 节点即 agent：把它的 persona/goal/画像 + 推演中的行为记忆，构建成 system prompt，
-// 让 LLM 以该 agent 身份回答。对标 MiroFish「与世界里任意 agent 对话」，但用轻量 persona。
-
-export async function interactWith(entityId, userMessage) {
-  const e = store.entities.find(x => x.id === entityId);
-  if (!e) { pushLog('未找到实体', 'err'); return; }
-  store.chat.running = true;
-  store.chat.target = entityId;
-  store.chat.messages.push({ role: 'user', content: userMessage });
-  const eps = (store.episodes[entityId] || []).map(ep => '[R' + ep.round + '] ' + ep.text).join('\n');
-  const isPerson = isPersonType(e.type);
-  const sysContent = isPerson
-    ? P('sysChatPerson', { name: e.name, type: e.type, persona: e.persona || '—', goal: e.goal || '—', bio: e.bio ? '\n背景：' + e.bio : '', traits: e.traits ? '\n特征：' + e.traits.join('、') : '' })
-    : P('sysChatObject', { name: e.name, type: e.type, persona: e.persona || '—', goal: e.goal || '—', specs: e.specs ? '\n规格：' + e.specs : '' });
-  const messages = [
-    { role: 'system', content: sysContent },
-    ...store.chat.messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
-  ];
-  try {
-    const reply = await callChat(messages, { json: false, temperature: 0.8, max_tokens: 800 });
-    store.chat.messages.push({ role: 'assistant', content: reply || '（无回复）' });
-  } catch (err) {
-    store.chat.messages.push({ role: 'assistant', content: '交互失败：' + err.message });
-    pushLog('交互失败：' + err.message, 'err');
-  } finally {
-    store.chat.running = false;
-  }
 }
 
 export function startChat(entityId) {

@@ -1,5 +1,6 @@
 import { reactive } from 'vue';
 import { getScenario, DEFAULT_SCENARIO_ID } from '../scenarios';
+import { invalidateKPITasks } from '../engine/kpi';
 
 export const store = reactive({
   health: { ok: false, model: '', keyConfigured: false, baseURL: '' },
@@ -76,6 +77,7 @@ export function pushLog(msg, cls = '') {
 }
 
 export function resetWorld() {
+  invalidateKPITasks();
   store.entities = []; store.edges = []; store.growth = []; store.episodes = {};
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = []; store.conflicts = [];

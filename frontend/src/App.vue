@@ -353,6 +353,7 @@
                   {{ lastKpiVal(store.comparison.baseline.kpiCurves[kpi])?.toFixed(2) || '?' }}
                   →
                   <span :class="kpiDiffClass(kpi)">{{ lastKpiVal(store.comparison.withAssumptions.kpiCurves[kpi])?.toFixed(2) || '?' }}</span>
+                  <b :class="kpiDiffClass(kpi)" v-if="kpiDelta(kpi) != null">（{{ kpiDelta(kpi) > 0 ? '+' : '' }}{{ kpiDelta(kpi).toFixed(2) }}）</b>
                 </span>
               </div>
             </div>
@@ -410,7 +411,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { store, pushLog, resetWorld, toggleLock, setScenario } from './store/sim';
-import { genEntities, runSim, enrichProfiles, interactWith, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim } from './engine/simulate';
+import { genEntities, runSim, enrichProfiles, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim, isPersonType, memoryBlock } from './engine/simulate';
 import { loadDemo } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
@@ -554,7 +555,7 @@ async function genReportStream() {
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = [];
   const summary = graphSummary();
-  const evidence = retrievalText();
+  const evidence = retrievalText() + comparisonEvidenceText();
   try {
     pushLog('报告规划中…（先检索图谱证据）', 'ac');
     const outline = await genOutline(evidence);
@@ -684,6 +685,31 @@ function kpiDiffClass(kpi) {
   if (b == null || w == null) return '';
   return w > b ? 'kpi-up' : w < b ? 'kpi-down' : '';
 }
+function kpiDelta(kpi) {
+  const b = lastKpiVal(store.comparison.baseline?.kpiCurves?.[kpi]);
+  const w = lastKpiVal(store.comparison.withAssumptions?.kpiCurves?.[kpi]);
+  if (b == null || w == null) return null;
+  return w - b;
+}
+
+// 对照实验证据块：注入报告 prompt，让报告可引用量化差异
+function comparisonEvidenceText() {
+  const c = store.comparison;
+  if (!(comparisonMode.value && c.baseline && c.withAssumptions)) return '';
+  const kpis = Object.keys(c.withAssumptions.kpiCurves || {});
+  if (!kpis.length) return '';
+  const lines = kpis.map(k => {
+    const b = lastKpiVal(c.baseline.kpiCurves[k]);
+    const w = lastKpiVal(c.withAssumptions.kpiCurves[k]);
+    if (b == null || w == null) return `- ${k}：基线 ${b ?? '?'} → 干预 ${w ?? '?'}`;
+    const d = w - b;
+    return `- ${k}：基线 ${b.toFixed(2)} → 干预 ${w.toFixed(2)}（${d >= 0 ? '+' : ''}${d.toFixed(2)}）`;
+  });
+  return '\n对照实验证据（同一命题下，无假设基线世界 vs 带假设干预世界，各轮独立推演）：\n' +
+    `- 基线世界规模：${c.baseline.entities.length} 实体 / ${c.baseline.edges.length} 关系\n` +
+    `- 干预世界规模：${c.withAssumptions.entities.length} 实体 / ${c.withAssumptions.edges.length} 关系\n` +
+    '- KPI 终值对比：\n' + lines.join('\n');
+}
 
 async function sendChat() {
   if (!chatInput.value.trim() || store.chat.running) return;
@@ -702,10 +728,10 @@ async function interactWithStream(entityId, userMessage) {
   store.chat.target = entityId;
   store.chat.messages.push({ role: 'user', content: userMessage });
   const eps = (store.episodes[entityId] || []).map(ep => '[R' + ep.round + '] ' + ep.text).join('\n');
-  const isPerson = !store.scenario.objectTypes?.includes(e.type) && (store.scenario.personKeywords || []).some(k => e.type.includes(k));
+  const isPerson = isPersonType(e.type);
   const sysContent = isPerson
-    ? `你现在是「${e.name}」，一个${e.type} agent，处于${store.scenario.domain}推演世界中行动。\n人格：${e.persona || '—'}\n目标：${e.goal || '—'}${e.bio ? '\n背景：' + e.bio : ''}${e.traits ? '\n特征：' + e.traits.join('、') : ''}\n\n经历：\n${eps}\n\n请以该角色身份回答，保持角色一致。`
-    : `你现在是「${e.name}」，一个${e.type}实体，处于${store.scenario.domain}世界。\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}${e.specs ? '\n规格：' + e.specs : ''}\n\n变化：\n${eps}\n\n请以该实体视角回答。`;
+    ? `你现在是「${e.name}」，一个${e.type} agent，处于${store.scenario.domain}推演世界中行动。\n人格：${e.persona || '—'}\n目标：${e.goal || '—'}${e.bio ? '\n背景：' + e.bio : ''}${e.traits ? '\n特征：' + e.traits.join('、') : ''}${memoryBlock(e)}\n\n经历：\n${eps}\n\n请以该角色身份回答；若它有演化记忆，说话时的情绪与立场应体现演化后的心境。保持角色一致。`
+    : `你现在是「${e.name}」，一个${e.type}实体，处于${store.scenario.domain}世界。\n描述：${e.persona || '—'}\n作用：${e.goal || '—'}${e.specs ? '\n规格：' + e.specs : ''}${memoryBlock(e)}\n\n变化：\n${eps}\n\n请以该实体视角回答。`;
   try {
     // 先 push 一个空的 assistant 占位，逐 token 填充
     store.chat.messages.push({ role: 'assistant', content: '' });
@@ -756,55 +782,83 @@ async function interactWithAnalyst(userMessage) {
 async function refreshHealth() { try { Object.assign(health, await fetchHealth()); } catch (e) { pushLog('后端未连接：' + e.message, 'err'); } }
 async function refreshHistory() { try { const { data } = await api.get('/api/experiments'); history.splice(0, history.length, ...data); } catch (e) {} }
 
-// 对比模拟：同时运行基线（无假设）和干预（带假设）
+// 对比模拟（真基线对照）：同一个种子文本、同样的轮数/焦点数，
+// 抽取两个全新世界——「无假设基线」vs「带假设干预」——唯一变量是假设事件，
+// 避免用"带假设抽取的图谱摘掉假设推演"造成基线被污染。
 async function runComparison() {
-  if (!store.ui.step1Done) { pushLog('请先生成实体', 'err'); return; }
-  store.comparison.active = true;
-  pushLog('▶ 对比模式：先跑基线（无假设），再跑干预（带假设）', 'ac');
+  if (!store.seed.trim()) { pushLog('请先填写场景种子', 'err'); return; }
+  if (store.ui.simRunning || store.ui.genRunning) { pushLog('推演进行中，无法启动对照实验', 'err'); return; }
+  if (store.assumptions.length === 0) { pushLog('请先添加假设事件，否则对照无差异变量', 'err'); return; }
 
-  // 保存当前状态
-  const savedAssumptions = [...store.assumptions];
-  const savedEntities = store.entities.map(e => ({ ...e }));
-  const savedEdges = store.edges.map(e => ({ ...e }));
-  const savedEpisodes = JSON.parse(JSON.stringify(store.episodes));
-
-  // 基线：无假设
-  store.assumptions = [];
-  store.entities = savedEntities.map(e => ({ ...e }));
-  store.edges = savedEdges.map(e => ({ ...e }));
-  store.episodes = JSON.parse(JSON.stringify(savedEpisodes));
-  store.activityFeed = [];
-  store.kpiCurves = {};
-  store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
-  await runSim();
-  store.comparison.baseline = {
-    entities: store.entities.map(e => ({ ...e })),
-    edges: store.edges.map(e => ({ ...e })),
-    growth: [...store.growth],
+  // 1. 快照当前现场（实验结束后完整恢复）
+  const saved = {
+    assumptions: JSON.parse(JSON.stringify(store.assumptions)),
+    entities: JSON.parse(JSON.stringify(store.entities)),
+    edges: JSON.parse(JSON.stringify(store.edges)),
+    growth: JSON.parse(JSON.stringify(store.growth)),
+    episodes: JSON.parse(JSON.stringify(store.episodes)),
     kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
-    report: store.report ? { ...store.report } : null,
+    activityFeed: JSON.parse(JSON.stringify(store.activityFeed)),
+    lockedIds: [...store.lockedIds],
+    simRound: store.simRound,
+    entN: store.entN,
+    ui: { b1: store.ui.b1, b2: store.ui.b2, b3: store.ui.b3, b4: store.ui.b4, step1Done: store.ui.step1Done },
+    chat: { target: store.chat.target, messages: JSON.parse(JSON.stringify(store.chat.messages)) },
   };
 
-  // 干预：带假设
-  store.assumptions = [...savedAssumptions];
-  store.entities = savedEntities.map(e => ({ ...e }));
-  store.edges = savedEdges.map(e => ({ ...e }));
-  store.episodes = JSON.parse(JSON.stringify(savedEpisodes));
-  store.activityFeed = [];
-  store.kpiCurves = {};
-  store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
-  store.ui.b2 = 'pending';
-  await runSim();
-  store.comparison.withAssumptions = {
-    entities: store.entities.map(e => ({ ...e })),
-    edges: store.edges.map(e => ({ ...e })),
-    growth: [...store.growth],
-    kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
-    report: store.report ? { ...store.report } : null,
-  };
+  const prevReport = store.report;
+  try {
+    store.comparison.active = true;
+    pushLog('▶ 对照实验：抽取两个全新世界（无假设基线 vs 带假设干预），轮数/焦点数一致', 'ac');
 
-  comparisonMode.value = true;
-  pushLog('✓ 对比模拟完成：切换到对比视图查看差异', 'ok');
+    // 2. 基线世界：清空假设重新抽取 + 推演
+    store.assumptions = [];
+    store.lockedIds = [];
+    endChat();
+    store.chat.messages = [];
+    await genEntities();
+    if (!store.entities.length) throw new Error('基线世界抽取失败');
+    const rounds = +store.rounds; // 两个世界强制同参数，保证公平
+    const perR = +store.perR;
+    await runSim();
+    store.comparison.baseline = {
+      entities: JSON.parse(JSON.stringify(store.entities)),
+      edges: JSON.parse(JSON.stringify(store.edges)),
+      growth: [...store.growth],
+      kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
+    };
+    pushLog(`✓ 基线世界完成：${store.comparison.baseline.entities.length} 实体 / ${store.comparison.baseline.edges.length} 关系`, 'ok');
+
+    // 3. 干预世界：恢复假设，同样参数重新抽取 + 推演
+    store.assumptions = JSON.parse(JSON.stringify(saved.assumptions));
+    store.lockedIds = [];
+    await genEntities();
+    if (!store.entities.length) throw new Error('干预世界抽取失败');
+    store.rounds = rounds; store.perR = perR;
+    await runSim();
+    store.comparison.withAssumptions = {
+      entities: JSON.parse(JSON.stringify(store.entities)),
+      edges: JSON.parse(JSON.stringify(store.edges)),
+      growth: [...store.growth],
+      kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
+    };
+    pushLog(`✓ 干预世界完成：${store.comparison.withAssumptions.entities.length} 实体 / ${store.comparison.withAssumptions.edges.length} 关系`, 'ok');
+
+    comparisonMode.value = true;
+    pushLog('✓ 对照实验完成，已切换到对比视图', 'ok');
+  } catch (err) {
+    pushLog('对照实验失败：' + err.message, 'err');
+  } finally {
+    // 4. 恢复现场
+    store.assumptions = saved.assumptions;
+    store.entities = saved.entities; store.edges = saved.edges; store.growth = saved.growth;
+    store.episodes = saved.episodes; store.kpiCurves = saved.kpiCurves;
+    store.activityFeed = saved.activityFeed; store.lockedIds = saved.lockedIds;
+    store.simRound = saved.simRound; store.entN = saved.entN;
+    Object.assign(store.ui, saved.ui);
+    store.chat.target = saved.chat.target; store.chat.messages = saved.chat.messages;
+    store.comparison.active = false;
+  }
 }
 
 // 一键演示流程
@@ -837,7 +891,7 @@ async function runDemoSequence() {
 async function saveExperiment(name) {
   if (!store.entities.length) return;
   try {
-    const { data } = await api.post('/api/experiment', { name: name || store.seed.slice(0,20) || '未命名', state: { entities: store.entities, edges: store.edges, growth: store.growth, report: store.report, episodes: store.episodes, reportOutline: store.reportOutline, reportSections: store.reportSections } });
+    const { data } = await api.post('/api/experiment', { name: name || store.seed.slice(0,20) || '未命名', state: { entities: store.entities, edges: store.edges, growth: store.growth, report: store.report, episodes: store.episodes, reportOutline: store.reportOutline, reportSections: store.reportSections, kpiCurves: store.kpiCurves, decisions: store.decisions, causalChains: store.causalChains, lockedIds: store.lockedIds, simRound: store.simRound, seed: store.seed, assumptions: store.assumptions, scenarioId: store.scenarioId } });
     pushLog('已保存推演：' + data.id, 'ok'); refreshHistory();
   } catch (e) { pushLog('保存失败：' + e.message, 'err'); }
 }
@@ -860,6 +914,8 @@ function persistNow() {
       entities: store.entities, edges: store.edges, growth: store.growth,
       report: store.report, episodes: store.episodes,
       reportOutline: store.reportOutline, reportSections: store.reportSections,
+      kpiCurves: store.kpiCurves, decisions: store.decisions, causalChains: store.causalChains,
+      lockedIds: store.lockedIds, simRound: store.simRound,
       ui: { b1: store.ui.b1, b2: store.ui.b2, b3: store.ui.b3, step1Done: store.ui.step1Done },
     }));
   } catch (e) { /* localStorage 满/禁用时静默 */ }
@@ -877,6 +933,8 @@ function restoreLocal() {
     store.entities = s.entities; store.edges = s.edges || []; store.growth = s.growth || [];
     store.report = s.report || null; store.episodes = s.episodes || {};
     store.reportOutline = s.reportOutline || null; store.reportSections = s.reportSections || {};
+    store.kpiCurves = s.kpiCurves || {}; store.decisions = s.decisions || []; store.causalChains = s.causalChains || [];
+    store.lockedIds = s.lockedIds || []; store.simRound = s.simRound || store.growth.length ? Math.max(0, (s.simRound ?? store.growth.length - 1)) : 0;
     Object.assign(store.ui, { b1: 'success', b2: 'success', b3: s.report ? 'success' : 'pending', step1Done: true });
     pushLog('♻ 已从本地恢复上次推演：' + store.entities.length + ' 实体 / ' + store.edges.length + ' 关系', 'ac');
   } catch (e) { /* 损坏数据直接忽略 */ }
@@ -886,10 +944,15 @@ async function loadExperiment(id) {
   try {
     const { data } = await api.get('/api/experiment/' + id);
     if (data.state) {
+      if (data.state.scenarioId && data.state.scenarioId !== store.scenarioId) setScenario(data.state.scenarioId);
+      store.seed = data.state.seed || store.seed; store.assumptions = data.state.assumptions || store.assumptions;
       store.entities = data.state.entities || []; store.edges = data.state.edges || [];
       store.growth = data.state.growth || []; store.report = data.state.report || null;
       store.episodes = data.state.episodes || {}; store.reportOutline = data.state.reportOutline || null;
       store.reportSections = data.state.reportSections || {};
+      store.kpiCurves = data.state.kpiCurves || {}; store.decisions = data.state.decisions || [];
+      store.causalChains = data.state.causalChains || []; store.lockedIds = data.state.lockedIds || [];
+      store.simRound = data.state.simRound ?? Math.max(0, store.growth.length - 1);
       store.ui.b1 = 'success'; store.ui.b2 = 'success'; store.ui.b3 = store.report ? 'success' : 'pending'; store.ui.step1Done = true;
       pushLog('回看推演：' + data.name, 'ac');
     }

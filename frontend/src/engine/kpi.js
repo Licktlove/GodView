@@ -24,10 +24,19 @@ function roundSummary(round) {
   };
 }
 
+// 竞态守卫：快速暂停/停止/重置时会同时有多个 predictKPIs 在途，
+// 只有最新一次调用允许写 kpiCurves，且同一轮只写一次
+let kpiEpoch = 0;
+
+// 图谱重置/重推演时调用：作废所有在途 KPI 预测
+export function invalidateKPITasks() { kpiEpoch++; }
+
 // 每轮推演后，调用 LLM 估算每个 KPI 的数值
 export async function predictKPIs(round) {
   const kpis = scn().kpiSchema || [];
   if (!kpis.length) return;
+  const myEpoch = ++kpiEpoch;
+  const stale = () => myEpoch !== kpiEpoch;
 
   const s = roundSummary(round);
   const kpiNames = kpis.join('、');
@@ -50,8 +59,10 @@ export async function predictKPIs(round) {
 
     (data.kpis || []).forEach(kpi => {
       if (!kpi.name || kpi.value == null) return;
+      if (stale()) return; // 已有更新的预测在途，丢弃过期结果
       const name = kpis.find(k => k === kpi.name || k.includes(kpi.name) || kpi.name.includes(k)) || kpi.name;
       if (!store.kpiCurves[name]) store.kpiCurves[name] = [];
+      if (store.kpiCurves[name].some(p => p.round === round)) return; // 同轮只写一次
       store.kpiCurves[name].push({
         round,
         value: Math.max(0, Math.min(1, Number(kpi.value))),
@@ -62,6 +73,7 @@ export async function predictKPIs(round) {
     });
   } catch (err) {
     pushLog(`KPI预测失败(R${round})：${err.message}`, 'err');
+    if (stale()) return; // 过期调用的兜底也不写入
     // 兜底：用上轮值插值
     kpis.forEach(k => {
       const curve = store.kpiCurves[k] || [];
