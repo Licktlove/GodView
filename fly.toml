@@ -1,0 +1,26 @@
+# Fly.io 部署配置（备选平台，同样用根目录 Dockerfile）
+#   fly apps create godview
+#   fly secrets set LLM_API_KEY=sk-xxx
+#   fly deploy
+#   打开 https://godview.fly.dev
+app = "godview"
+primary_region = "sin"        # 新加坡
+
+[build]
+
+[env]
+  PORT = "3001"
+  LLM_BASE_URL = "https://ai-router.dmall.com/v1"
+  LLM_MODEL = "qwen3.6-flash"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false   # 比赛期间保持常驻，避免冷启动让评委白等
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

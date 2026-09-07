@@ -1,0 +1,21 @@
+# Render Blueprint（推荐：免费档即可，链接形如 https://godview.onrender.com）
+# 用法：Render 控制台 → New → Blueprint → 选本仓库 → 自动识别 render.yaml
+#       LLM_API_KEY 标记为 sync: false，需在 Render 面板 Environment 里手动填，不进代码库。
+services:
+  - type: web
+    name: godview
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: singapore          # 新加坡，国内访问相对快；也可改 oregon / frankfurt
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: LLM_BASE_URL
+        value: https://ai-router.dmall.com/v1
+      - key: LLM_MODEL
+        value: qwen3.6-flash
+      - key: LLM_API_KEY
+        sync: false            # ← 部署后在面板填，切勿提交到 Git

@@ -1,0 +1,12 @@
+.git
+.github
+.workbuddy
+node_modules
+**/node_modules
+frontend/dist
+frontend/.omc
+backend/data
+backend/.env
+video
+*.log
+.DS_Store

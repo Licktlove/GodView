@@ -1,0 +1,15 @@
+# 本地 / 自有服务器一键起全栈
+#   docker compose up -d --build
+#   打开 http://localhost:8080
+services:
+  godview:
+    build: .
+    image: godview:latest
+    container_name: godview
+    restart: unless-stopped
+    ports:
+      - "8080:3001"          # 宿主 8080 -> 容器 3001
+    env_file:
+      - backend/.env         # LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 都从这里读
+    environment:
+      PORT: "3001"           # 显式覆盖 .env 里的 3100，容器内固定 3001
