@@ -89,6 +89,23 @@
   .card p{color:var(--muted);font-size:13.5px;line-height:1.55}
   .card .accent{color:var(--accent);font-weight:700}
 
+  /* 团队成员卡 */
+  .team{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:36px}
+  .member{background:linear-gradient(180deg,var(--surface),rgba(12,34,49,.6));
+    border:1px solid var(--line);border-radius:16px;padding:28px 22px;text-align:center;
+    position:relative;overflow:hidden;transition:border-color .25s,transform .25s}
+  .member:hover{border-color:rgba(56,189,248,.5);transform:translateY(-3px)}
+  .member::before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;
+    background:linear-gradient(90deg,var(--primary),transparent)}
+  .member .ava{width:66px;height:66px;border-radius:50%;margin:0 auto 16px;
+    display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:800;color:#04121F;
+    background:linear-gradient(135deg,#7DD3FC,var(--primary));box-shadow:0 0 26px rgba(14,165,233,.35)}
+  .member .nm{font-size:21px;font-weight:800;letter-spacing:1px}
+  .member .dp{color:var(--muted);font-size:13.5px;line-height:1.6;margin-top:8px;min-height:44px}
+  .member .role{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:1px;color:var(--primary-bright);border:1px solid rgba(56,189,248,.35);
+    border-radius:999px;padding:5px 13px}
+
   /* 三步叙事 */
   .flow{display:flex;align-items:stretch;gap:0;margin-top:30px;flex-wrap:wrap}
   .step{flex:1;min-width:160px;background:linear-gradient(180deg,var(--surface),rgba(12,34,49,.6));
@@ -149,7 +166,7 @@
   .deco2{position:absolute;left:-80px;top:-60px;width:360px;height:360px;opacity:.22;z-index:-1}
 
   @media (max-width:860px){
-    .g3,.g4{grid-template-columns:repeat(2,1fr)}
+    .g3,.g4,.team{grid-template-columns:repeat(2,1fr)}
     .g2{grid-template-columns:1fr}
     .slide{padding:8vh 7vw}
     .deco,.deco2{display:none}
@@ -188,9 +205,9 @@
       让每一个经营决策，都<span class="grad">先在未来发生一次</span>。
     </div>
     <div class="reveal" style="margin-top:40px;display:flex;gap:26px;align-items:center;color:var(--muted);font-size:14px">
-      <span>赛道：AI + 零售 · 智能决策</span>
+      <span>赛道：价值突破赛道 · AI + 零售智能决策</span>
       <span>·</span>
-      <span>团队：多点 Dmall</span>
+      <span>团队：廉晨涛 · 徐亚敏 · 方瑞</span>
     </div>
   </section>
 
@@ -396,10 +413,38 @@
       <div class="card reveal"><div class="num">✓</div><h3>流式报告</h3><p>ReACT 式检索图谱证据，SSE 真流式输出。</p></div>
       <div class="card reveal"><div class="num">✓</div><h3>数据持久化</h3><p>实验快照保存回看，刷新不丢失。</p></div>
     </div>
-    <div class="reveal tag">团队：多点 Dmall — 零售数字化一线出身</div>
+    <div class="reveal tag">跨部门协作：营销履约 × 原子智能 × 零售云工程</div>
   </section>
 
-  <!-- 12 路线图 -->
+  <!-- 12 团队 -->
+  <section class="slide" data-title="团队">
+    <div class="reveal eyebrow">Team · 参赛团队</div>
+    <h2 class="reveal">来自<span class="grad">零售一线 × AI × 零售云</span>的三人组</h2>
+    <div class="sub reveal" style="margin-top:14px">业务场景、智能体推演、门店系统落地——三种能力在同一个沙盘上重叠。</div>
+    <div class="team">
+      <div class="member reveal">
+        <div class="ava">廉</div>
+        <div class="nm">廉晨涛</div>
+        <div class="dp">营销履约开发部</div>
+        <div class="role">RETAIL &amp; FULFILLMENT</div>
+      </div>
+      <div class="member reveal">
+        <div class="ava">徐</div>
+        <div class="nm">徐亚敏</div>
+        <div class="dp">Aletheia Retail Intelligence 中心<br/>原子智能部</div>
+        <div class="role">AI AGENT &amp; REASONING</div>
+      </div>
+      <div class="member reveal">
+        <div class="ava">方</div>
+        <div class="nm">方瑞</div>
+        <div class="dp">零售云研发部<br/>POS 开发部</div>
+        <div class="role">STORE SYSTEMS</div>
+      </div>
+    </div>
+    <div class="reveal quote" style="margin-top:36px">不是外包给 AI 做的一次演示，<span class="grad">是零售人自己造的决策工具</span>。</div>
+  </section>
+
+  <!-- 13 路线图 -->
   <section class="slide" data-title="路线图">
     <div class="reveal eyebrow">Roadmap · 下一步</div>
     <h2 class="reveal">让推演更"硬"</h2>
@@ -413,7 +458,7 @@
     </div>
   </section>
 
-  <!-- 13 结语 -->
+  <!-- 14 结语 -->
   <section class="slide" data-title="结语">
     <div class="reveal eyebrow" style="text-align:center">Thank You</div>
     <h1 class="reveal" style="text-align:center">让每一个经营决策，<br/><span class="grad">都先在未来发生一次</span></h1>

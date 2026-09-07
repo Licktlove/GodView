@@ -22,3 +22,6 @@ backend/data/experiments/*.json
 # OMC 工具目录
 .omc/
 frontend/.omc/
+
+# 视频原始录制素材（体积大、半成品；成片 video/*.mp4 可单独提交）
+video/shots/
