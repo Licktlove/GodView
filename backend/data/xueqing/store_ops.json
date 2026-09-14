@@ -1,0 +1,1017 @@
+{
+  "store": {
+    "name": "学清路店",
+    "code": "1365",
+    "period": "2026-06",
+    "source": "物美 POS 明细"
+  },
+  "split": {
+    "train": [
+      "20260601",
+      "20260623"
+    ],
+    "holdout": [
+      "20260624",
+      "20260630"
+    ]
+  },
+  "ingest": {
+    "rows": 1009335,
+    "skipped": 1875,
+    "skuCount": 13307,
+    "generatedAt": "2026-09-14T09:52:33"
+  },
+  "facts": {
+    "train": {
+      "days": 23,
+      "lines": 778441,
+      "orders": 182088,
+      "gmv": 11698144.82,
+      "cost": 10353805.43,
+      "profit": 1344339.39,
+      "discount": 417019.09,
+      "qty": 181161186.0,
+      "member_orders": 136000,
+      "promo_gmv": 1374140.0,
+      "margin": 11.5,
+      "aov": 64.24,
+      "member_share": 74.7,
+      "promo_share": 11.7
+    },
+    "holdout": {
+      "days": 7,
+      "lines": 229019,
+      "orders": 52629,
+      "gmv": 3435099.27,
+      "cost": 3060630.9,
+      "profit": 374468.37,
+      "discount": 86074.21,
+      "qty": 52578050.0,
+      "member_orders": 41783,
+      "promo_gmv": 372899.59,
+      "margin": 10.9,
+      "aov": 65.27,
+      "member_share": 79.4,
+      "promo_share": 10.9
+    },
+    "full": {
+      "days": 30,
+      "lines": 1007460,
+      "orders": 234717,
+      "gmv": 15133244.09,
+      "cost": 13414436.33,
+      "profit": 1718807.76,
+      "discount": 503093.3,
+      "qty": 233739236.0,
+      "member_orders": 177783,
+      "promo_gmv": 1747039.59,
+      "margin": 11.4,
+      "aov": 64.47,
+      "member_share": 75.7,
+      "promo_share": 11.5
+    },
+    "floorTrain": {
+      "days": 23,
+      "lines": 769944,
+      "orders": 181059,
+      "gmv": 11418015.37,
+      "cost": 10102799.78,
+      "profit": 1315215.59,
+      "discount": 415595.45,
+      "qty": 178701626.0,
+      "member_orders": 0,
+      "promo_gmv": 1342754.51,
+      "margin": 11.5,
+      "aov": 63.06,
+      "member_share": 0.0,
+      "promo_share": 11.8
+    },
+    "channels": [
+      {
+        "name": "智能购",
+        "gmv": 8484723.61,
+        "orders": 149772,
+        "lines": 625915
+      },
+      {
+        "name": "线下商超",
+        "gmv": 6086417.42,
+        "orders": 83582,
+        "lines": 370330
+      },
+      {
+        "name": "企业团购",
+        "gmv": 562103.06,
+        "orders": 1363,
+        "lines": 11215
+      }
+    ],
+    "hours": [
+      {
+        "name": "晚高峰 17–21",
+        "gmv": 7045815.82,
+        "orders": 121996
+      },
+      {
+        "name": "午间 11–14",
+        "gmv": 3718712.8,
+        "orders": 59219
+      },
+      {
+        "name": "其余时段",
+        "gmv": 2159795.17,
+        "orders": 32079
+      },
+      {
+        "name": "早高峰 07–10",
+        "gmv": 1646817.24,
+        "orders": 20060
+      }
+    ],
+    "categories": [
+      {
+        "name": "其他",
+        "gmv": 10397802.43,
+        "profit": 1138179.4,
+        "margin": 10.9
+      },
+      {
+        "name": "生鲜",
+        "gmv": 2043050.61,
+        "profit": 237702.46,
+        "margin": 11.6
+      },
+      {
+        "name": "乳品",
+        "gmv": 935584.49,
+        "profit": 115036.38,
+        "margin": 12.3
+      },
+      {
+        "name": "零食",
+        "gmv": 374155.41,
+        "profit": 82787.06,
+        "margin": 22.1
+      },
+      {
+        "name": "饮料",
+        "gmv": 251127.77,
+        "profit": 37456.03,
+        "margin": 14.9
+      },
+      {
+        "name": "粮油米面",
+        "gmv": 204745.3,
+        "profit": 14984.41,
+        "margin": 7.3
+      },
+      {
+        "name": "酒水",
+        "gmv": 194826.34,
+        "profit": 34412.02,
+        "margin": 17.7
+      },
+      {
+        "name": "日化",
+        "gmv": 169848.67,
+        "profit": 12132.8,
+        "margin": 7.1
+      }
+    ],
+    "daily": [
+      {
+        "dt": "20260601",
+        "split": "train",
+        "gmv": 427754.76,
+        "profit": 53098.21,
+        "orders": 7465,
+        "floor_gmv": 382721.87,
+        "floor_profit": 49377.85,
+        "floor_orders": 7441
+      },
+      {
+        "dt": "20260602",
+        "split": "train",
+        "gmv": 347211.67,
+        "profit": 37817.13,
+        "orders": 6737,
+        "floor_gmv": 345068.51,
+        "floor_profit": 37580.73,
+        "floor_orders": 6712
+      },
+      {
+        "dt": "20260603",
+        "split": "train",
+        "gmv": 356302.9,
+        "profit": 41944.44,
+        "orders": 7145,
+        "floor_gmv": 354008.27,
+        "floor_profit": 41637.07,
+        "floor_orders": 7122
+      },
+      {
+        "dt": "20260604",
+        "split": "train",
+        "gmv": 432817.83,
+        "profit": 49331.28,
+        "orders": 7756,
+        "floor_gmv": 429376.73,
+        "floor_profit": 48930.24,
+        "floor_orders": 7725
+      },
+      {
+        "dt": "20260605",
+        "split": "train",
+        "gmv": 579986.7,
+        "profit": 61958.12,
+        "orders": 8867,
+        "floor_gmv": 535257.7,
+        "floor_profit": 58496.41,
+        "floor_orders": 8832
+      },
+      {
+        "dt": "20260606",
+        "split": "train",
+        "gmv": 795429.12,
+        "profit": 93071.29,
+        "orders": 10155,
+        "floor_gmv": 783387.52,
+        "floor_profit": 91472.28,
+        "floor_orders": 10081
+      },
+      {
+        "dt": "20260607",
+        "split": "train",
+        "gmv": 742990.34,
+        "profit": 86574.01,
+        "orders": 10271,
+        "floor_gmv": 716355.48,
+        "floor_profit": 84334.39,
+        "floor_orders": 10174
+      },
+      {
+        "dt": "20260608",
+        "split": "train",
+        "gmv": 382417.93,
+        "profit": 48171.47,
+        "orders": 6705,
+        "floor_gmv": 375826.33,
+        "floor_profit": 47052.98,
+        "floor_orders": 6678
+      },
+      {
+        "dt": "20260609",
+        "split": "train",
+        "gmv": 394920.06,
+        "profit": 51836.35,
+        "orders": 7170,
+        "floor_gmv": 390450.21,
+        "floor_profit": 51403.03,
+        "floor_orders": 7139
+      },
+      {
+        "dt": "20260610",
+        "split": "train",
+        "gmv": 388049.76,
+        "profit": 46576.83,
+        "orders": 7419,
+        "floor_gmv": 385249.72,
+        "floor_profit": 46199.95,
+        "floor_orders": 7388
+      },
+      {
+        "dt": "20260611",
+        "split": "train",
+        "gmv": 429402.71,
+        "profit": 50049.81,
+        "orders": 7474,
+        "floor_gmv": 415768.22,
+        "floor_profit": 49141.1,
+        "floor_orders": 7451
+      },
+      {
+        "dt": "20260612",
+        "split": "train",
+        "gmv": 506733.3,
+        "profit": 57936.29,
+        "orders": 8506,
+        "floor_gmv": 502716.29,
+        "floor_profit": 57389.61,
+        "floor_orders": 8473
+      },
+      {
+        "dt": "20260613",
+        "split": "train",
+        "gmv": 677490.67,
+        "profit": 86623.69,
+        "orders": 8874,
+        "floor_gmv": 665627.14,
+        "floor_profit": 84835.35,
+        "floor_orders": 8806
+      },
+      {
+        "dt": "20260614",
+        "split": "train",
+        "gmv": 758101.34,
+        "profit": 81454.58,
+        "orders": 10520,
+        "floor_gmv": 747093.9,
+        "floor_profit": 79870.79,
+        "floor_orders": 10446
+      },
+      {
+        "dt": "20260615",
+        "split": "train",
+        "gmv": 320643.25,
+        "profit": 36805.13,
+        "orders": 6160,
+        "floor_gmv": 319216.29,
+        "floor_profit": 36626.93,
+        "floor_orders": 6146
+      },
+      {
+        "dt": "20260616",
+        "split": "train",
+        "gmv": 314615.91,
+        "profit": 37753.79,
+        "orders": 5490,
+        "floor_gmv": 312201.21,
+        "floor_profit": 37625.09,
+        "floor_orders": 5468
+      },
+      {
+        "dt": "20260617",
+        "split": "train",
+        "gmv": 429073.04,
+        "profit": 51859.87,
+        "orders": 7380,
+        "floor_gmv": 422305.16,
+        "floor_profit": 50663.18,
+        "floor_orders": 7335
+      },
+      {
+        "dt": "20260618",
+        "split": "train",
+        "gmv": 668444.5,
+        "profit": 74366.34,
+        "orders": 8657,
+        "floor_gmv": 652957.37,
+        "floor_profit": 73319.76,
+        "floor_orders": 8606
+      },
+      {
+        "dt": "20260619",
+        "split": "train",
+        "gmv": 827444.38,
+        "profit": 84335.79,
+        "orders": 9495,
+        "floor_gmv": 798509.59,
+        "floor_profit": 81374.43,
+        "floor_orders": 9417
+      },
+      {
+        "dt": "20260620",
+        "split": "train",
+        "gmv": 646094.29,
+        "profit": 75385.14,
+        "orders": 8876,
+        "floor_gmv": 630401.76,
+        "floor_profit": 73148.94,
+        "floor_orders": 8785
+      },
+      {
+        "dt": "20260621",
+        "split": "train",
+        "gmv": 617894.4,
+        "profit": 68882.84,
+        "orders": 8760,
+        "floor_gmv": 604686.9,
+        "floor_profit": 67146.84,
+        "floor_orders": 8681
+      },
+      {
+        "dt": "20260622",
+        "split": "train",
+        "gmv": 284757.43,
+        "profit": 35860.05,
+        "orders": 5440,
+        "floor_gmv": 283508.77,
+        "floor_profit": 35680.17,
+        "floor_orders": 5418
+      },
+      {
+        "dt": "20260623",
+        "split": "train",
+        "gmv": 369568.53,
+        "profit": 32646.94,
+        "orders": 6766,
+        "floor_gmv": 365320.43,
+        "floor_profit": 31908.46,
+        "floor_orders": 6735
+      },
+      {
+        "dt": "20260624",
+        "split": "holdout",
+        "gmv": 393528.17,
+        "profit": 46873.82,
+        "orders": 6743,
+        "floor_gmv": 369529.2,
+        "floor_profit": 44743.31,
+        "floor_orders": 6710
+      },
+      {
+        "dt": "20260625",
+        "split": "holdout",
+        "gmv": 383505.02,
+        "profit": 38108.05,
+        "orders": 7326,
+        "floor_gmv": 378691.74,
+        "floor_profit": 37516.56,
+        "floor_orders": 7279
+      },
+      {
+        "dt": "20260626",
+        "split": "holdout",
+        "gmv": 477761.52,
+        "profit": 50870.04,
+        "orders": 7793,
+        "floor_gmv": 473459.76,
+        "floor_profit": 50295.03,
+        "floor_orders": 7750
+      },
+      {
+        "dt": "20260627",
+        "split": "holdout",
+        "gmv": 700012.49,
+        "profit": 77197.18,
+        "orders": 9689,
+        "floor_gmv": 689329.79,
+        "floor_profit": 75829.91,
+        "floor_orders": 9615
+      },
+      {
+        "dt": "20260628",
+        "split": "holdout",
+        "gmv": 599106.53,
+        "profit": 71157.17,
+        "orders": 8796,
+        "floor_gmv": 588072.68,
+        "floor_profit": 69845.11,
+        "floor_orders": 8727
+      },
+      {
+        "dt": "20260629",
+        "split": "holdout",
+        "gmv": 324744.81,
+        "profit": 39274.16,
+        "orders": 5927,
+        "floor_gmv": 322686.49,
+        "floor_profit": 39001.62,
+        "floor_orders": 5898
+      },
+      {
+        "dt": "20260630",
+        "split": "holdout",
+        "gmv": 556440.72,
+        "profit": 50987.95,
+        "orders": 6355,
+        "floor_gmv": 331355.99,
+        "floor_profit": 40243.42,
+        "floor_orders": 6316
+      }
+    ]
+  },
+  "sku": {
+    "push": [
+      {
+        "id": "719320",
+        "name": "同仁堂干海参(辽参)101-130头/190g",
+        "cat": "其他",
+        "gmv": 30845.6,
+        "profit": 6169.12,
+        "qty": 1.0,
+        "discount": 0.0,
+        "promoProfit": 0.0
+      },
+      {
+        "id": "786297",
+        "name": "DL压榨一级花生油5L",
+        "cat": "粮油米面",
+        "gmv": 17092.28,
+        "profit": 2872.1,
+        "qty": 177.0,
+        "discount": 81.75,
+        "promoProfit": 439.74
+      },
+      {
+        "id": "339176",
+        "name": "2*香雅13％现磨养生粉系列/个",
+        "cat": "其他",
+        "gmv": 55634.82,
+        "profit": 10014.27,
+        "qty": 796.0,
+        "discount": 215.71,
+        "promoProfit": 1318.5
+      },
+      {
+        "id": "817635",
+        "name": "贵妃红荔枝",
+        "cat": "其他",
+        "gmv": 15967.47,
+        "profit": 242.77,
+        "qty": 491629.0,
+        "discount": 146.84,
+        "promoProfit": -29.68
+      },
+      {
+        "id": "100399",
+        "name": "樱桃",
+        "cat": "其他",
+        "gmv": 34590.82,
+        "profit": 534.48,
+        "qty": 914689.0,
+        "discount": 304.37,
+        "promoProfit": 36.69
+      },
+      {
+        "id": "743439",
+        "name": "15年 53%vol 500ml贵州茅台酒（尊品）",
+        "cat": "其他",
+        "gmv": 11998.0,
+        "profit": 1200.0,
+        "qty": 2.0,
+        "discount": 0.0,
+        "promoProfit": 0.0
+      },
+      {
+        "id": "814306",
+        "name": "三文鱼刺身",
+        "cat": "生鲜",
+        "gmv": 36858.38,
+        "profit": 5528.76,
+        "qty": 110002.0,
+        "discount": 331.36,
+        "promoProfit": 549.89
+      },
+      {
+        "id": "439144",
+        "name": "(箱)DL精酿比利时风味白啤酒330ml",
+        "cat": "酒水",
+        "gmv": 10171.48,
+        "profit": 2308.66,
+        "qty": 4074.0,
+        "discount": 63.32,
+        "promoProfit": 178.0
+      }
+    ],
+    "cut": [
+      {
+        "id": "744568",
+        "name": "海天甄选东北大米5kg",
+        "cat": "粮油米面",
+        "gmv": 26104.22,
+        "profit": -2954.28,
+        "qty": 1306.0,
+        "discount": 20.24,
+        "promoProfit": -9.5
+      },
+      {
+        "id": "899905",
+        "name": "妃子笑荔枝",
+        "cat": "其他",
+        "gmv": 50330.78,
+        "profit": -6356.36,
+        "qty": 2468896.0,
+        "discount": 595.65,
+        "promoProfit": -941.62
+      },
+      {
+        "id": "448985",
+        "name": "荔枝王",
+        "cat": "其他",
+        "gmv": 26688.02,
+        "profit": 1294.79,
+        "qty": 529977.0,
+        "discount": 215.67,
+        "promoProfit": -94.48
+      },
+      {
+        "id": "601506",
+        "name": "冰糖麒麟西瓜（现切）",
+        "cat": "其他",
+        "gmv": 14328.84,
+        "profit": 2531.2,
+        "qty": 1881174.0,
+        "discount": 130.52,
+        "promoProfit": 176.75
+      },
+      {
+        "id": "823581",
+        "name": "冷鲜通排（单）",
+        "cat": "其他",
+        "gmv": 13943.07,
+        "profit": -5385.58,
+        "qty": 668312.0,
+        "discount": 1694.03,
+        "promoProfit": -1726.3
+      },
+      {
+        "id": "439145",
+        "name": "(箱)DL精酿比利时风味白啤酒500ml",
+        "cat": "酒水",
+        "gmv": 14140.87,
+        "profit": 3186.43,
+        "qty": 3726.0,
+        "discount": 23.55,
+        "promoProfit": 508.46
+      },
+      {
+        "id": "409828",
+        "name": "(折)麻辣海鲜(PH)",
+        "cat": "其他",
+        "gmv": 21145.43,
+        "profit": 1468.89,
+        "qty": 172716.0,
+        "discount": 95.12,
+        "promoProfit": 182.8
+      },
+      {
+        "id": "785880",
+        "name": "DL胖东来牌多功能洁面柔巾 60片",
+        "cat": "其他",
+        "gmv": 15036.72,
+        "profit": 3947.62,
+        "qty": 1870.0,
+        "discount": 135.02,
+        "promoProfit": 265.4
+      }
+    ],
+    "losingPromos": [
+      {
+        "id": "934813",
+        "name": "五粮液500ml 52度第八代经典",
+        "cat": "其他",
+        "gmv": 158971.69,
+        "profit": 1655.22,
+        "qty": 198.0,
+        "discount": 74700.5,
+        "promoProfit": -3162.19
+      },
+      {
+        "id": "253128",
+        "name": "金枕榴莲",
+        "cat": "其他",
+        "gmv": 224184.79,
+        "profit": -32527.41,
+        "qty": 5802256.0,
+        "discount": 27014.63,
+        "promoProfit": -27552.26
+      },
+      {
+        "id": "593846",
+        "name": "【物美专供】谷物鲜鸡蛋12枚520g",
+        "cat": "其他",
+        "gmv": 837.31,
+        "profit": -17165.84,
+        "qty": 2254.0,
+        "discount": 26692.53,
+        "promoProfit": -17301.35
+      },
+      {
+        "id": "787963",
+        "name": "(折)金枕榴莲",
+        "cat": "其他",
+        "gmv": 86553.15,
+        "profit": -11967.66,
+        "qty": 1768982.0,
+        "discount": 23393.02,
+        "promoProfit": -6922.36
+      },
+      {
+        "id": "136866",
+        "name": "北京酸奶杯装自然原味200g",
+        "cat": "乳品",
+        "gmv": 3133.19,
+        "profit": -6804.98,
+        "qty": 1690.0,
+        "discount": 8458.04,
+        "promoProfit": -7095.87
+      },
+      {
+        "id": "136867",
+        "name": "北京酸奶杯装草莓树莓无花果200g",
+        "cat": "乳品",
+        "gmv": 1124.68,
+        "profit": -5012.59,
+        "qty": 908.0,
+        "discount": 5991.73,
+        "promoProfit": -5104.74
+      },
+      {
+        "id": "540229",
+        "name": "鲜牛肉分割",
+        "cat": "生鲜",
+        "gmv": 25162.76,
+        "profit": -7987.15,
+        "qty": 459938.0,
+        "discount": 3619.9,
+        "promoProfit": -6722.71
+      },
+      {
+        "id": "197373",
+        "name": "飞天53%vol 3L贵州茅台酒",
+        "cat": "其他",
+        "gmv": 14999.0,
+        "profit": 999.0,
+        "qty": 1.0,
+        "discount": 10000.0,
+        "promoProfit": 999.0
+      }
+    ]
+  },
+  "playbook": [
+    {
+      "id": "a1",
+      "kind": "push",
+      "who": "理货 / 店长",
+      "when": "下周一开店前",
+      "skuId": "719320",
+      "sku": "同仁堂干海参(辽参)101-130头/190g",
+      "cat": "其他",
+      "action": "主推「同仁堂干海参(辽参)101-130头/190g」：黄金位补货、晚高峰保持不断货",
+      "evidence": "1–23日到店销售额 30845.6 元，毛利 6169.12 元；月中后日均比月初 +3427.29 元",
+      "expected": "守住该品到店毛利贡献（训练期 6169.12 元）",
+      "stop": "若下周连续 3 天日销低于训练期日均的 50%，撤回堆头",
+      "backtestVerdict": "insufficient",
+      "backtestLabel": "证据不足",
+      "holdoutEvidence": "盲测周几乎没有成交，无法判断主推对不对"
+    },
+    {
+      "id": "a2",
+      "kind": "push",
+      "who": "理货 / 店长",
+      "when": "下周一开店前",
+      "skuId": "786297",
+      "sku": "DL压榨一级花生油5L",
+      "cat": "粮油米面",
+      "action": "主推「DL压榨一级花生油5L」：黄金位补货、晚高峰保持不断货",
+      "evidence": "1–23日到店销售额 17092.28 元，毛利 2872.1 元；月中后日均比月初 +1899.14 元",
+      "expected": "守住该品到店毛利贡献（训练期 2872.1 元）",
+      "stop": "若下周连续 3 天日销低于训练期日均的 50%，撤回堆头",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周销售 13068.72 元、毛利 2222.82 元，主推方向被坐实"
+    },
+    {
+      "id": "a3",
+      "kind": "push",
+      "who": "理货 / 店长",
+      "when": "下周一开店前",
+      "skuId": "339176",
+      "sku": "2*香雅13％现磨养生粉系列/个",
+      "cat": "其他",
+      "action": "主推「2*香雅13％现磨养生粉系列/个」：黄金位补货、晚高峰保持不断货",
+      "evidence": "1–23日到店销售额 55634.82 元，毛利 10014.27 元；月中后日均比月初 +1609.18 元",
+      "expected": "守住该品到店毛利贡献（训练期 10014.27 元）",
+      "stop": "若下周连续 3 天日销低于训练期日均的 50%，撤回堆头",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周销售 17953.73 元、毛利 3231.67 元，主推方向被坐实"
+    },
+    {
+      "id": "a4",
+      "kind": "cut",
+      "who": "店长 / 采购",
+      "when": "本周例会定，下周执行",
+      "skuId": "744568",
+      "sku": "海天甄选东北大米5kg",
+      "cat": "粮油米面",
+      "action": "砍「海天甄选东北大米5kg」排面：减陈列面、暂停加订，观察一周",
+      "evidence": "月初日均 3712.4 元，月中后日均掉到 13.05 元，到店毛利 -2954.28 元",
+      "expected": "把排面让给正在走量的头部品，减少滞销占位",
+      "stop": "若减面后该品日销回升到月初 80%，恢复一个排面",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周销售仅 5720.31 元，仍远低于月初，减面被坐实"
+    },
+    {
+      "id": "a5",
+      "kind": "cut",
+      "who": "店长 / 采购",
+      "when": "本周例会定，下周执行",
+      "skuId": "899905",
+      "sku": "妃子笑荔枝",
+      "cat": "其他",
+      "action": "砍「妃子笑荔枝」排面：减陈列面、暂停加订，观察一周",
+      "evidence": "月初日均 3053.03 元，月中后日均掉到 695.39 元，到店毛利 -6356.36 元",
+      "expected": "把排面让给正在走量的头部品，减少滞销占位",
+      "stop": "若减面后该品日销回升到月初 80%，恢复一个排面",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周销售仅 615.48 元，仍远低于月初，减面被坐实"
+    },
+    {
+      "id": "a6",
+      "kind": "stop_promo",
+      "who": "店长 / 促销员",
+      "when": "立刻停，最迟下周一档期切换",
+      "skuId": "934813",
+      "sku": "五粮液500ml 52度第八代经典",
+      "cat": "其他",
+      "action": "停「五粮液500ml 52度第八代经典」亏本促：取消让利或改成会员专享小额券",
+      "evidence": "促销让利 74700.5 元，促销期毛利 -3162.19 元",
+      "expected": "把让利从该品挪走，避免继续用折扣换负毛利",
+      "stop": "若停促后面价销售毛利率仍低于全店训练期水平，考虑汰换",
+      "backtestVerdict": "miss",
+      "backtestLabel": "盲测打脸",
+      "holdoutEvidence": "盲测周毛利 724.75 元且促销不再明显亏，停促被打脸"
+    },
+    {
+      "id": "a7",
+      "kind": "stop_promo",
+      "who": "店长 / 促销员",
+      "when": "立刻停，最迟下周一档期切换",
+      "skuId": "253128",
+      "sku": "金枕榴莲",
+      "cat": "其他",
+      "action": "停「金枕榴莲」亏本促：取消让利或改成会员专享小额券",
+      "evidence": "促销让利 27014.63 元，促销期毛利 -27552.26 元",
+      "expected": "把让利从该品挪走，避免继续用折扣换负毛利",
+      "stop": "若停促后面价销售毛利率仍低于全店训练期水平，考虑汰换",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周仍在促，让利 4533.81 元、促销毛利 -1535.82 元，停促被坐实"
+    },
+    {
+      "id": "a8",
+      "kind": "stop_promo",
+      "who": "店长 / 促销员",
+      "when": "立刻停，最迟下周一档期切换",
+      "skuId": "593846",
+      "sku": "【物美专供】谷物鲜鸡蛋12枚520g",
+      "cat": "其他",
+      "action": "停「【物美专供】谷物鲜鸡蛋12枚520g」亏本促：取消让利或改成会员专享小额券",
+      "evidence": "促销让利 26692.53 元，促销期毛利 -17301.35 元",
+      "expected": "把让利从该品挪走，避免继续用折扣换负毛利",
+      "stop": "若停促后面价销售毛利率仍低于全店训练期水平，考虑汰换",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周仍在促，让利 9141.88 元、促销毛利 -5934.06 元，停促被坐实"
+    },
+    {
+      "id": "a9",
+      "kind": "ops",
+      "who": "理货 / 收银",
+      "when": "每日 16:30 前",
+      "skuId": "",
+      "sku": "",
+      "cat": "全店",
+      "action": "晚高峰前把头部品补满收银口与主通道，17–21 点不断货",
+      "evidence": "到店晚高峰 17–21 占分时段销售额约 48%（704.6 万元）",
+      "expected": "减少晚高峰缺货，保住日盘后半段客单",
+      "stop": "若补货后该时段销售连续 3 天仍掉超 15%，改查排班而不是继续加陈列",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周晚高峰仍占到店销售 49.4%（训练期 48.1%），补货窗口被坐实"
+    },
+    {
+      "id": "a10",
+      "kind": "ops",
+      "who": "店长 / 会员岗",
+      "when": "下周全周",
+      "skuId": "",
+      "sku": "",
+      "cat": "会员",
+      "action": "头部品主推优先打给会员：停亏本全场促，改会员价/积分",
+      "evidence": "1–23 日会员订单占比 74.7%，客单价 64.24 元",
+      "expected": "同样让利更集中在复购客，降低全场砸价",
+      "stop": "若会员成交占比掉过 5 个点，检查会员价是否可见",
+      "backtestVerdict": "hit",
+      "backtestLabel": "盲测坐实",
+      "holdoutEvidence": "盲测周会员订单占比 79.4%（训练期 74.7%），会员优先仍被坐实"
+    }
+  ],
+  "backtest": {
+    "method": "口径：到店成交（POS/自助购，不含企业团购）。用 1–23 日「星期几均值」预测 24–30 日销售；毛利按训练期到店毛利率外推。头部 SKU 同样用星期几均值，与真实头部交叉验证。",
+    "holdoutDays": [
+      "20260624",
+      "20260625",
+      "20260626",
+      "20260627",
+      "20260628",
+      "20260629",
+      "20260630"
+    ],
+    "gmvPred": 3574812.32,
+    "gmvActual": 3153125.66,
+    "gmvMape": 13.4,
+    "profitPred": 411774.62,
+    "profitActual": 357474.97,
+    "profitMape": 15.2,
+    "top20Overlap": 11,
+    "top20Size": 20,
+    "top20HitRate": 55.0,
+    "skuMapeMedian": 71.8,
+    "skuMapeN": 7619,
+    "predTop": [
+      {
+        "name": "同仁堂干海参(辽参)101-130头/190g",
+        "pred": 215919.2,
+        "actual": 0.0
+      },
+      {
+        "name": "飞天53%vol 3L贵州茅台酒",
+        "pred": 104993.0,
+        "actual": 0.0
+      },
+      {
+        "name": "(折)金枕榴莲",
+        "pred": 101375.83,
+        "actual": 0.0
+      },
+      {
+        "name": "15年 53%vol 500ml贵州茅台酒（尊品）",
+        "pred": 83986.0,
+        "actual": 0.0
+      },
+      {
+        "name": "五粮液500ml 52度第八代经典",
+        "pred": 76014.36,
+        "actual": 14110.0
+      },
+      {
+        "name": "金枕榴莲",
+        "pred": 74006.03,
+        "actual": 49172.06
+      },
+      {
+        "name": "【新鲜现制】手工鲜肉肉蛋堡 150g/份（三口味可选）",
+        "pred": 48781.18,
+        "actual": 28648.81
+      },
+      {
+        "name": "国窖1573 500ml 52度",
+        "pred": 39858.0,
+        "actual": 0.0
+      }
+    ],
+    "actualTop": [
+      {
+        "name": "金枕榴莲",
+        "actual": 49172.06,
+        "pred": 74006.03
+      },
+      {
+        "name": "(条)(2)中华(双中支)",
+        "actual": 35560.0,
+        "pred": 7975.0
+      },
+      {
+        "name": "素凉拌菜1",
+        "actual": 34886.01,
+        "pred": 35908.42
+      },
+      {
+        "name": "(2)红塔山(软经典)",
+        "actual": 34608.41,
+        "pred": 1791.25
+      },
+      {
+        "name": "三文鱼切片",
+        "actual": 29325.07,
+        "pred": 31911.63
+      },
+      {
+        "name": "【新鲜现制】手工鲜肉肉蛋堡 150g/份（三口味可选）",
+        "actual": 28648.81,
+        "pred": 48781.18
+      },
+      {
+        "name": "1*凉皮",
+        "actual": 23133.45,
+        "pred": 23584.44
+      },
+      {
+        "name": "黑猪肉小笼包",
+        "actual": 20327.39,
+        "pred": 21529.6
+      }
+    ],
+    "actionSummary": {
+      "hit": 8,
+      "miss": 1,
+      "insufficient": 1,
+      "note": "动作级盲测：24–30 日真数对照 1–23 日给出的推/砍/停促。打脸条目保留，证明可证伪。"
+    },
+    "eveningShare": {
+      "train": 48.1,
+      "holdout": 49.4
+    }
+  },
+  "seed": "我是物美「学清路店」（店号 1365）店长。手里是 2026 年 6 月整月真实 POS：全月销售额 15133244 元、毛利 1718808 元、综合毛利率 11.4%，订单 234717 笔、客单价 64.47 元、会员订单占比 75.7%。1–23 日到店（排除企业团购）销售额 11418015 元、毛利 1315216 元、毛利率 11.5%。让利/促销折扣合计 417019 元，促销销售占比 11.7%。命题只有一个：根据已发生的成交，下周该推什么、砍什么、停哪几场亏本促销。不要讲空话，动作必须落到 SKU、责任人和停手条件。",
+  "assumptions": [
+    "只用学清路店 2026-06-01 至 06-23 的到店成交做决策，06-24 至 06-30 留作盲测，禁止偷看",
+    "企业团购大单不进货架动作；作战台只对到店客（POS / 自助购）负责",
+    "结论必须可执行：SKU + 谁做 + 哪天 + 预期 + 停手条件；盲测坐实或打脸都留在台上，图谱只标对齐或未对齐"
+  ]
+}
