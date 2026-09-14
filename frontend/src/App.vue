@@ -30,7 +30,7 @@
         </button>
         <div class="step-divider"></div>
         <div class="workflow-step">
-          <span class="step-num-h">Step {{ currentStep }}/4</span>
+          <span class="step-num-h">Step {{ currentStep }}/5</span>
           <span class="step-name-h">{{ stepName }}</span>
         </div>
       </div>
@@ -60,9 +60,12 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(1) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b1">{{ badgeText(store.ui.b1) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(1)">
-                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="'例：' + (store.scenario.seedExamples?.[0] || '描述你的场景…')"></textarea></div>
+                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="seedPlaceholder"></textarea></div>
                 <div class="preset-row">
-                  <button v-for="p in store.scenario.seedExamples" :key="p" class="preset-btn" @click="store.seed = p">{{ p.slice(0,10) }}…</button>
+                  <button v-for="(p, idx) in store.scenario.seedExamples" :key="seedTitle(p)" class="preset-btn" :class="{ star: idx===0 && store.scenario.flagship }" @click="applySeed(p)">{{ seedTitle(p) }}</button>
+                </div>
+                <div class="demo-cue" v-if="flagshipOn">
+                  现场：生成实体 → 出报告 → 打开 05 作战台看动作与回测。访谈开场：{{ store.scenario.flagship.interviewQ }}
                 </div>
                 <div class="assumption-box">
                   <div class="assumption-label">假设事件 <span class="assumption-hint">世界设定的前提，会注入抽取与整个推演</span></div>
@@ -81,7 +84,8 @@
                   <span>{{ store.ui.genRunning ? '生成中…' : '生成实体' }}</span><span>→</span>
                 </button>
                 <div style="text-align:center;margin-top:8px">
-                  <button class="btn-secondary" @click="loadDemo">加载示例</button>
+                  <button v-if="store.scenario.flagship" class="btn-secondary demo-fill" @click="loadFlagshipProposition">填入 {{ store.scenario.flagship.title || '演示' }}</button>
+                  <button class="btn-secondary" :style="store.scenario.flagship ? 'margin-left:6px' : ''" @click="loadDemo">加载示例</button>
                   <button v-if="store.ui.step1Done" class="btn-secondary" style="margin-left:6px" @click="enrichProfiles" :disabled="store.ui.enrichRunning">
                     {{ store.ui.enrichRunning ? '丰富中…' : '✨ 画像丰富' }}
                   </button>
@@ -326,6 +330,18 @@
               </div>
             </div>
 
+            <!-- Step 5: ACT 作战台（POS 真数动作 + 回测） -->
+            <div class="step-card" id="workbench-step-act" :class="{ active: store.ui.b5 === 'processing', completed: store.ops.loaded, locked: !store.ops.loaded }">
+              <button type="button" class="card-header" @click="toggleStep(5)" :aria-expanded="!collapsedSteps.has(5)">
+                <span class="card-header-title"><span class="card-step-num">05</span><span class="card-header-copy"><b>ACT</b><small>{{ store.ops.loaded ? '学清路店作战台 · POS 回测' : '等待门店真数' }}</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(5) ? '+' : '−' }}</span><span class="badge" :class="store.ops.loaded ? 'success' : 'pending'">{{ store.ops.loaded ? 'POS' : 'Pending' }}</span></span>
+              </button>
+              <div v-show="!collapsedSteps.has(5)">
+                <div v-if="!store.ops.loaded" class="step-lock-hint"><span>○</span><span>未找到学清路店 POS 聚合结果。后端运行 python scripts/ingest_pos.py</span></div>
+                <ActPanel v-else />
+              </div>
+            </div>
+
             <button type="button" class="secondary-section-toggle" @click="systemPanelOpen = !systemPanelOpen" :aria-expanded="systemPanelOpen">
               <span><b>SYSTEM / PERSISTENCE</b><small>日志、对比结果与保存记录</small></span>
               <strong>{{ systemPanelOpen ? '−' : '+' }}</strong>
@@ -412,15 +428,17 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { store, pushLog, resetWorld, toggleLock, setScenario } from './store/sim';
 import { genEntities, runSim, enrichProfiles, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim, isPersonType, memoryBlock } from './engine/simulate';
-import { loadDemo } from './engine/synthetic';
+import { loadDemo, loadFlagshipProposition } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
 import { listScenarios } from './scenarios';
+import { loadStoreOps, posEvidenceText, matchPlaybookToGraph } from './engine/posOps';
 import HomeView from './components/HomeView.vue';
 import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
 import ReportView from './components/ReportView.vue';
+import ActPanel from './components/ActPanel.vue';
 import { renderMarkdown } from './utils/markdown';
 
 const scenarios = listScenarios();
@@ -447,22 +465,33 @@ const analysisInput = ref('');
 const analysisRef = ref(null);
 const activityRef = ref(null);
 const collapsedSections = ref(new Set());
-const collapsedSteps = ref(new Set([2, 3, 4]));
+const collapsedSteps = ref(new Set([2, 3, 4, 5]));
 const systemPanelOpen = ref(false);
 const comparisonMode = ref(false);
 const initConfirmOpen = ref(false);
-const workflowStepNumbers = [1, 2, 3, 4];
+const workflowStepNumbers = [1, 2, 3, 4, 5];
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 const rightStyle = computed(() => viewMode.value === 'workbench' ? { width: '100%', opacity: 1 } : viewMode.value === 'graph' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 
 const currentStep = computed(() => {
+  if (store.ui.b5 === 'success' && store.ui.b3 === 'success') return 5;
   if (store.ui.b3 === 'success' || store.ui.b3 === 'processing') return 4;
   if (store.ui.b2 === 'success' || store.ui.b2 === 'processing') return 3;
   if (store.ui.b1 === 'success' || store.ui.b1 === 'processing') return 2;
   return 1;
 });
-const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '决策报告', 4: '深度互动' }[currentStep.value] || ''));
+const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '决策报告', 4: '深度互动', 5: '作战台' }[currentStep.value] || ''));
+function seedText(p) { return typeof p === 'string' ? p : (p?.text || ''); }
+function seedTitle(p) { return typeof p === 'string' ? p.slice(0, 8) : (p?.title || '预设'); }
+function applySeed(p) {
+  if (store.scenario.flagship && seedText(p) === store.scenario.flagship.seed) loadFlagshipProposition();
+  else store.seed = seedText(p);
+}
+const flagshipOn = computed(() => !!(store.scenario.flagship && store.seed === store.scenario.flagship.seed));
+const seedPlaceholder = computed(() => store.scenario.flagship?.title
+  ? '例：' + store.scenario.flagship.title
+  : ('例：' + (seedTitle(store.scenario.seedExamples?.[0]) || '描述你的场景…')));
 const isBusy = computed(() => store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running);
 const statusClass = computed(() => isBusy.value ? 'processing' : 'ready');
 const statusText = computed(() => isBusy.value ? 'Processing' : 'Ready');
@@ -475,10 +504,11 @@ const workflowTargets = {
   simulate: 'workbench-step-simulate',
   observe: 'workbench-step-observe',
   interview: 'workbench-step-interview',
+  act: 'workbench-step-act',
 };
 
 function focusWorkbenchTarget(key) {
-  const stepNumber = { whatIf: 1, simulate: 2, observe: 3, interview: 4 }[key];
+  const stepNumber = { whatIf: 1, simulate: 2, observe: 3, interview: 4, act: 5 }[key];
   if (stepNumber) expandStep(stepNumber);
   const target = document.getElementById(workflowTargets[key]);
   if (!target) return;
@@ -555,7 +585,7 @@ async function genReportStream() {
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = [];
   const summary = graphSummary();
-  const evidence = retrievalText() + comparisonEvidenceText();
+    const evidence = retrievalText() + comparisonEvidenceText() + '\n\n' + posEvidenceText();
   try {
     pushLog('报告规划中…（先检索图谱证据）', 'ac');
     const outline = await genOutline(evidence);
@@ -568,7 +598,7 @@ async function genReportStream() {
       pushLog(`流式生成章节 ${i + 1}/${sections.length}：${sections[i].title}…`, 'ac');
       const sectionSummary = summary + '\n\n' + evidence + '\n\n已有章节：' + doneContents.map(s => s.slice(0, 100)).join('；');
       const content = await streamChat(
-        [{ role: 'system', content: '你是' + store.scenario.domain + '决策分析师。撰写指定章节，Markdown，80-150字。' },
+        [{ role: 'system', content: '你是' + store.scenario.domain + '决策分析师。撰写指定章节，Markdown，80-150字。数字只能引用 POS 硬约束；图谱与 POS 冲突时写「图谱未对齐」，对错以盲测坐实/打脸为准。' },
          { role: 'user', content: `报告标题：${outline.title || ''}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节正文。直接输出正文，不要重复输出章节标题，不要使用 Markdown 一级或二级标题作为开头。` }],
         { temperature: 0.6, max_tokens: 1500, onToken: (delta, acc) => { store.reportSections[i] = { content: acc, status: 'generating' }; } }
       );
@@ -578,9 +608,11 @@ async function genReportStream() {
     }
     store.causalChains = await extractCausalChains(summary);
     store.decisions = await extractDecisions(summary);
+    matchPlaybookToGraph();
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
     store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告（流式）', fullContent: allContent };
     store.ui.b3 = 'success'; store.ui.b4 = 'pending';
+    if (store.ops.loaded) store.ui.b5 = 'success';
     pushLog('✓ 决策报告已生成（流式）', 'ok');
   } catch (err) {
     store.ui.b3 = 'pending'; pushLog('报告生成失败：' + err.message, 'err');
@@ -597,7 +629,7 @@ async function extractCausalChains(summary) {
 }
 async function extractDecisions(summary) {
   try {
-    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0}]}' }], json: true, temperature: 0.5, max_tokens: 1000 });
+    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。动作必须具体到 SKU 或岗位，并引用 POS。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n' + posEvidenceText() + '\n\n生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0}]}' }], json: true, temperature: 0.5, max_tokens: 1000 });
     return (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
   } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
 }
@@ -884,7 +916,8 @@ async function runDemoSequence() {
   if (demoNode) {
     startChat(demoNode.id);
     expandStep(4);
-    pushLog('💬 已自动打开与「价格敏感客群」的访谈对话', 'ac');
+    const q = store.scenario.flagship?.interviewQ || '硬折扣来了，你会不会走？';
+    pushLog('💬 已打开与「价格敏感客群」的访谈。问：' + q, 'ac');
   }
 }
 
@@ -959,7 +992,15 @@ async function loadExperiment(id) {
   } catch (e) { pushLog('加载失败：' + e.message, 'err'); }
 }
 
-watch(() => store.logs.length, async () => { await nextTick(); if (termRef.value) termRef.value.scrollTop = termRef.value.scrollHeight; });
+watch(() => store.chat.target, (id) => {
+  const f = store.scenario.flagship;
+  if (!id || !f) return;
+  if (id === f.interviewId && f.interviewQ) chatInput.value = f.interviewQ;
+  else {
+    const hit = (f.followups || []).find(x => x.id === id);
+    if (hit) chatInput.value = hit.q;
+  }
+});
 watch(() => store.chat.messages.length, async () => { await nextTick(); if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight; });
 watch(() => store.analysis.messages.length, async () => { await nextTick(); if (analysisRef.value) analysisRef.value.scrollTop = analysisRef.value.scrollHeight; });
 watch(() => store.activityFeed.length, async () => { await nextTick(); if (activityRef.value) activityRef.value.scrollTop = activityRef.value.scrollHeight; });
@@ -970,8 +1011,12 @@ watch(() => store.ui.b2, (status, previous) => {
   if (status === 'success' && previous !== 'success') expandStep(3);
 });
 watch(() => store.ui.b3, (status, previous) => {
-  if (status === 'success' && previous !== 'success') expandStep(4);
+  if (status === 'success' && previous !== 'success') {
+    expandStep(4);
+    if (store.ops.loaded) expandStep(5);
+  }
 });
-onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); });
+watch(() => store.entities.length, () => { matchPlaybookToGraph(); });
+onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); loadStoreOps(); });
 onBeforeUnmount(stopAdjust);
 </script>

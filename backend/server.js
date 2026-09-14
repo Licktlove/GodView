@@ -20,7 +20,7 @@ app.use(express.json({ limit: '8mb' }));
 const PORT = process.env.PORT || 3001;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/$/, '');
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
-const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
+const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat'; // 以 backend/.env 为准
 const DATA_DIR = path.join(__dirname, 'data', 'experiments');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -29,6 +29,47 @@ function cleanLLM(s) {
   s = (s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
   s = s.replace(/^```(?:json)?\s*/i, '').replace(/\n?```\s*$/, '').trim();
   return s;
+}
+
+function parseUpstreamError(text) {
+  try {
+    const j = JSON.parse(text);
+    const msg = j.error?.message || j.message || '';
+    const type = j.error?.type || j.type || '';
+    return { msg, type, raw: text };
+  } catch {
+    return { msg: '', type: '', raw: text };
+  }
+}
+
+function upstreamStatus(status) {
+  return status === 404 ? 400 : status;
+}
+
+async function explainUpstreamError(status, text) {
+  const { msg, type, raw } = parseUpstreamError(text);
+  const modelMissing = type === 'model_not_found' || /not supported|model_not_found|does not exist/i.test(msg || raw);
+  if (modelMissing) {
+    let available = '';
+    try {
+      const mr = await fetch(LLM_BASE_URL + '/models', {
+        headers: { Authorization: 'Bearer ' + LLM_API_KEY },
+      });
+      if (mr.ok) {
+        const mj = await mr.json();
+        const ids = (mj.data || mj.models || []).map((m) => m.id || m).filter(Boolean).slice(0, 12);
+        if (ids.length) available = '。当前账号可用模型：' + ids.join('、');
+      }
+    } catch (_) { /* ignore */ }
+    return {
+      error: `当前模型「${LLM_MODEL}」在网关账号下不可用${available}`,
+      detail: msg || raw.slice(0, 400),
+    };
+  }
+  return {
+    error: msg || ('上游 LLM 返回错误 HTTP ' + status),
+    detail: raw.slice(0, 400),
+  };
 }
 
 // ---------- 健康检查 ----------
@@ -65,7 +106,7 @@ app.post('/api/chat', async (req, res) => {
 
   const text = await r.text();
   if (!r.ok) {
-    return res.status(r.status).json({ error: '上游 LLM 返回错误 HTTP ' + r.status, detail: text.slice(0, 400) });
+    return res.status(upstreamStatus(r.status)).json(await explainUpstreamError(r.status, text));
   }
   let d;
   try {
@@ -118,7 +159,7 @@ app.post('/api/chat/stream', async (req, res) => {
   }
   if (!upstream.ok) {
     const txt = await upstream.text();
-    res.write(`data: ${JSON.stringify({ error: '上游 LLM 返回错误 HTTP ' + upstream.status, detail: txt.slice(0, 400) })}\n\n`);
+    res.write(`data: ${JSON.stringify(await explainUpstreamError(upstream.status, txt))}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
     return;
@@ -201,6 +242,16 @@ app.get('/api/experiment/:id', (req, res) => {
   const p = path.join(DATA_DIR, id + '.json');
   if (!fs.existsSync(p)) return res.status(404).json({ error: '未找到实验' });
   res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
+});
+
+const STORE_OPS = path.join(__dirname, 'data', 'xueqing', 'store_ops.json');
+app.get('/api/store/ops', (req, res) => {
+  if (!fs.existsSync(STORE_OPS)) {
+    return res.status(404).json({
+      error: '门店作战台数据未生成。在 backend 运行：python scripts/ingest_pos.py',
+    });
+  }
+  res.type('json').send(fs.readFileSync(STORE_OPS, 'utf8'));
 });
 
 app.delete('/api/experiment/:id', (req, res) => {
