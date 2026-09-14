@@ -26,6 +26,14 @@ export { isPersonType };
 
 function fill(t, ...args) { return t.replace(/\{(\w+)\}/g, (m, k) => (k in args[0] ? args[0][k] : m)); }
 
+function friendlyExtractError(err) {
+  const msg = String(err?.message || err || '');
+  if (/insufficient account balance/i.test(msg)) {
+    return '模型账户余额不足，请充值后再生成实体';
+  }
+  return msg;
+}
+
 // 把 prompt 模板里的 {domain} 替换为当前场景领域
 function P(key, extra = {}) { return fill(scn().prompts[key] || '', { domain: scn().domain, ...extra }); }
 function Praw(key) { return (scn().prompts[key] || '').replace(/\{domain\}/g, scn().domain); }
@@ -127,7 +135,7 @@ export async function genEntities() {
     store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
   } catch (err) {
     store.ui.b1 = 'pending';
-    pushLog('实体抽取失败：' + err.message + '（可点「加载示例」）', 'err');
+    pushLog('实体抽取失败：' + friendlyExtractError(err) + '（可点「加载示例」）', 'err');
   } finally {
     store.ui.genRunning = false;
   }

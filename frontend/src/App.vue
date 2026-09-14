@@ -62,7 +62,7 @@
               <div v-show="!collapsedSteps.has(1)">
                 <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="seedPlaceholder"></textarea></div>
                 <div class="preset-row">
-                  <button v-for="(p, idx) in store.scenario.seedExamples" :key="seedTitle(p)" class="preset-btn" :class="{ star: idx===0 && store.scenario.flagship }" @click="applySeed(p)">{{ seedTitle(p) }}</button>
+                  <button v-for="(p, idx) in store.scenario.seedExamples" :key="seedTitle(p)" class="preset-btn" :class="{ star: idx===0 && store.scenario.flagship, on: seedText(p) === store.seed }" @click="applySeed(p)">{{ seedTitle(p) }}</button>
                 </div>
                 <div class="demo-cue" v-if="flagshipOn">
                   现场：生成实体 → 出报告 → 打开 05 作战台看动作与回测。访谈开场：{{ store.scenario.flagship.interviewQ }}

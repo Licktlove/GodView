@@ -430,7 +430,8 @@ input:checked + .slider:before { transform: translateX(14px); }
   font-size: 11px; padding: 2px 8px; border: 1px solid var(--hairline); border-radius: var(--radius-sm);
   background: var(--canvas); color: var(--body); transition: all 0.1s;
 }
-.preset-btn.star { border-color: var(--primary); color: var(--ink); background: rgba(14,165,233,.08); font-weight: 700; }
+.preset-btn.star { font-weight: 700; }
+.preset-btn.on { border-color: var(--primary); color: var(--ink); background: rgba(14,165,233,.08); }
 .demo-fill { border-color: var(--primary) !important; color: var(--ink) !important; }
 .demo-cue {
   margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-sm);
