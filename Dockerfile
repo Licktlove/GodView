@@ -9,6 +9,8 @@
 # ---------- 阶段 1：构建前端 ----------
 FROM node:22-alpine AS builder
 WORKDIR /app/frontend
+# 国内构建加速；包内容不受影响，海外构建也可用
+RUN npm config set registry https://registry.npmmirror.com
 COPY frontend/package.json ./
 RUN npm install --no-audit --no-fund
 COPY frontend/ ./
@@ -21,7 +23,7 @@ WORKDIR /app
 
 # 只装生产依赖（express / cors / dotenv）
 COPY backend/package.json /app/backend/package.json
-RUN cd /app/backend && npm install --omit=dev --no-audit --no-fund
+RUN npm config set registry https://registry.npmmirror.com && cd /app/backend && npm install --omit=dev --no-audit --no-fund
 
 COPY backend/server.js /app/backend/server.js
 # server.js 从 ../frontend/dist 读取静态产物，路径必须保持这一层关系

@@ -13,3 +13,6 @@ services:
       - backend/.env         # LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 都从这里读
     environment:
       PORT: "3001"           # 显式覆盖 .env 里的 3100，容器内固定 3001
+    volumes:
+      # 推演记录持久化：映射到宿主机，容器重建/升级后历史不丢
+      - ./backend/data:/app/backend/data

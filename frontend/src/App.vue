@@ -28,6 +28,9 @@
         <button class="comparison-btn" v-if="store.comparison.baseline && store.comparison.withAssumptions" :class="{ active: comparisonMode }" @click="toggleComparison" title="对比模式：基线 vs 干预">
           ⚖ 对比
         </button>
+        <button class="history-btn" @click="openHistory" title="查看所有已保存推演（自动记录，跨刷新 / 重启保留）">
+          📚 推演历史<span v-if="history.length" class="history-badge">{{ history.length }}</span>
+        </button>
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num-h">Step {{ currentStep }}/4</span>
@@ -77,11 +80,11 @@
                   </div>
                 </div>
                 <div class="slider-row"><span class="lab">实体数量</span><div class="number-stepper" role="group" aria-label="实体数量"><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('entN', -1, 4, 999, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('entN', -1, 4, 999)" @keydown.space.prevent="adjustNumber('entN', -1, 4, 999)" :disabled="store.entN <= 4" aria-label="减少实体数量">−</button><input class="stepper-input" type="number" min="4" max="999" inputmode="numeric" v-model.number="store.entN" @blur="normalizeNumber('entN', 4, 999)" @keydown.enter.prevent="normalizeNumber('entN', 4, 999)" aria-label="实体数量" /><button type="button" class="stepper-btn" @pointerdown.stop.prevent="startAdjust('entN', 1, 4, 999, $event)" @pointerup="stopAdjust" @pointercancel="stopAdjust" @click.stop.prevent="noop" @keydown.enter.prevent="adjustNumber('entN', 1, 4, 999)" @keydown.space.prevent="adjustNumber('entN', 1, 4, 999)" :disabled="store.entN >= 999" aria-label="增加实体数量">+</button></div></div>
-                <button class="start-engine-btn" @click="genEntities" :disabled="store.ui.genRunning">
+                <button class="start-engine-btn" @click="onGenEntities" :disabled="store.ui.genRunning">
                   <span>{{ store.ui.genRunning ? '生成中…' : '生成实体' }}</span><span>→</span>
                 </button>
                 <div style="text-align:center;margin-top:8px">
-                  <button class="btn-secondary" @click="loadDemo">加载示例</button>
+                  <button class="btn-secondary" @click="onLoadDemo">加载示例</button>
                   <button v-if="store.ui.step1Done" class="btn-secondary" style="margin-left:6px" @click="enrichProfiles" :disabled="store.ui.enrichRunning">
                     {{ store.ui.enrichRunning ? '丰富中…' : '✨ 画像丰富' }}
                   </button>
@@ -379,7 +382,7 @@
             </div>
 
             <div style="margin-top:16px;text-align:center" v-if="store.entities.length">
-              <button class="btn-secondary" @click="saveExperiment">保存推演</button>
+              <button class="btn-secondary" @click="saveExperiment()">保存推演</button>
             </div>
             </div>
 
@@ -402,6 +405,39 @@
         <div class="init-confirm-actions">
           <button type="button" class="btn-secondary" @click="initConfirmOpen = false">取消</button>
           <button type="button" class="init-confirm-submit" @click="confirmInitialize">确认初始化</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- 推演历史：云端自动保存的全部记录，可回看 / 删除 -->
+    <div v-if="historyOpen" class="history-backdrop" @click.self="historyOpen = false">
+      <section class="history-modal" role="dialog" aria-modal="true" aria-labelledby="hist-title">
+        <div class="history-modal-head">
+          <div>
+            <span class="history-kicker">PERSISTENCE · 云端自动记录</span>
+            <h2 id="hist-title">推演历史</h2>
+            <p>每一次推演都会自动落盘到这里，跨刷新 / 服务重启都不会丢失；点击任意一条即可回看当时的图谱与报告。</p>
+          </div>
+          <button class="detail-close" @click="historyOpen = false" aria-label="关闭">×</button>
+        </div>
+        <div class="history-modal-body">
+          <div v-if="!history.length" class="history-empty">
+            <span class="history-empty-icon">🗂</span>
+            <strong>还没有保存的推演</strong>
+            <p>点击「启动推演」后，系统会自动把这次推演（含最终报告）记录在此。</p>
+          </div>
+          <div v-for="h in history" :key="h.id" class="history-row" @click="openExperiment(h.id)">
+            <div class="history-row-main">
+              <span class="history-row-name">{{ typeof h.name === 'string' ? h.name : '未命名推演' }}</span>
+              <span class="history-row-meta">
+                {{ (h.createdAt || '').slice(0, 16).replace('T', ' ') }}
+                · {{ h.nodes }}N / {{ h.edges }}E
+                <span v-if="h.hasReport" class="history-flag">含报告</span>
+                <span v-if="h.scenario" class="history-flag ghost">{{ h.scenario }}</span>
+              </span>
+            </div>
+            <button class="history-del" @click.stop="deleteExperiment(h.id)" title="删除该推演">删除</button>
+          </div>
         </div>
       </section>
     </div>
@@ -439,6 +475,8 @@ const viewMode = ref('home');
 const reportViewOpen = ref(false);
 const health = reactive({ ok: false, model: '', keyConfigured: false, baseURL: '' });
 const history = reactive([]);
+const historyOpen = ref(false);
+const currentExpId = ref(null);   // 当前推演在云端的记录 id：先建骨架，报告生成后回写同一份
 const termRef = ref(null);
 const chatRef = ref(null);
 const chatInput = ref('');
@@ -499,6 +537,7 @@ function initializeWorld() {
 
 function confirmInitialize() {
   initConfirmOpen.value = false;
+  currentExpId.value = null;
   const preservedLogs = [...store.logs];
   const preservedComparison = JSON.parse(JSON.stringify(store.comparison));
   const preservedSystemPanelOpen = systemPanelOpen.value;
@@ -582,6 +621,7 @@ async function genReportStream() {
     store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告（流式）', fullContent: allContent };
     store.ui.b3 = 'success'; store.ui.b4 = 'pending';
     pushLog('✓ 决策报告已生成（流式）', 'ok');
+    if (store.entities.length) await saveOrUpdateExperiment();   // 把报告/决策/因果链回写同一份云端记录
   } catch (err) {
     store.ui.b3 = 'pending'; pushLog('报告生成失败：' + err.message, 'err');
   } finally {
@@ -888,19 +928,56 @@ async function runDemoSequence() {
   }
 }
 
-async function saveExperiment(name) {
+function snapshotState() {
+  return {
+    entities: store.entities, edges: store.edges, growth: store.growth,
+    report: store.report, episodes: store.episodes,
+    reportOutline: store.reportOutline, reportSections: store.reportSections,
+    kpiCurves: store.kpiCurves, decisions: store.decisions,
+    causalChains: store.causalChains, lockedIds: store.lockedIds,
+    simRound: store.simRound, seed: store.seed, assumptions: store.assumptions,
+    scenarioId: store.scenarioId,
+  };
+}
+function autoName() {
+  const s = (store.seed || '').trim();
+  return '【自动】' + (store.scenario.label || '推演') + (s ? ' · ' + s.slice(0, 16) : '');
+}
+// 统一保存入口：有 currentExpId 就回写同一份（报告生成后补全），否则新建
+async function saveOrUpdateExperiment() {
   if (!store.entities.length) return;
+  const state = snapshotState();
   try {
-    const { data } = await api.post('/api/experiment', { name: name || store.seed.slice(0,20) || '未命名', state: { entities: store.entities, edges: store.edges, growth: store.growth, report: store.report, episodes: store.episodes, reportOutline: store.reportOutline, reportSections: store.reportSections, kpiCurves: store.kpiCurves, decisions: store.decisions, causalChains: store.causalChains, lockedIds: store.lockedIds, simRound: store.simRound, seed: store.seed, assumptions: store.assumptions, scenarioId: store.scenarioId } });
-    pushLog('已保存推演：' + data.id, 'ok'); refreshHistory();
+    if (currentExpId.value) {
+      const { data } = await api.put('/api/experiment/' + currentExpId.value, { state });
+      pushLog('已更新推演快照：' + (data.id || currentExpId.value), 'ok');
+    } else {
+      const { data } = await api.post('/api/experiment', { name: autoName(), state });
+      currentExpId.value = data.id;
+      pushLog('已保存推演：' + data.id, 'ok');
+    }
+    refreshHistory();
   } catch (e) { pushLog('保存失败：' + e.message, 'err'); }
 }
-// 自动保存：每次推演结束自动落一份快照到后端
+async function saveExperiment() { await saveOrUpdateExperiment(); }
+// 自动保存：每次推演结束自动落一份快照到后端（报告随后补全到同一份）
 async function runSimAuto() {
   await runSim();
-  if (store.entities.length) {
-    saveExperiment('【自动】' + (store.scenario.label || '') + (store.seed ? ' · ' + store.seed.slice(0, 12) : ''));
-  }
+  if (store.entities.length) await saveOrUpdateExperiment();
+}
+// 开启全新世界（生成实体 / 加载示例）时，重置当前记录 id，下次推演另存为新条目
+function onGenEntities() { currentExpId.value = null; return genEntities(); }
+function onLoadDemo() { currentExpId.value = null; return loadDemo(); }
+// 历史面板
+async function openHistory() { await refreshHistory(); historyOpen.value = true; }
+async function openExperiment(id) { historyOpen.value = false; await loadExperiment(id); }
+async function deleteExperiment(id) {
+  try {
+    await api.delete('/api/experiment/' + id);
+    pushLog('已删除推演：' + id, 'ok');
+    if (currentExpId.value === id) currentExpId.value = null;
+    await refreshHistory();
+  } catch (e) { pushLog('删除失败：' + e.message, 'err'); }
 }
 // ---------- 本地持久化：防页面刷新 / 服务重启丢推演 ----------
 const LS_KEY = 'godview-sandbox-v1';

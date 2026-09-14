@@ -66,6 +66,53 @@ npm install --prefix backend   && npm start --prefix backend
 用 **方式 C** 的 Docker 方式即可；再配个 Nginx 反代 80/443 → 8080，加个免费 HTTPS 证书，
 链接就是 `https://godview.你的域名` —— 比 `onrender.com` 更正式，适合写进报名表。
 
+### 方式 E：阿里云（**评委在国内时首选**）⭐
+
+| 产品 | 适合度 | 说明 |
+|---|---|---|
+| **轻量应用服务器** | ✅ **推荐** | 2核2G / 3~5M 带宽约 24~60 元/月，自带公网 IP，Docker 一把梭 |
+| ECS 云服务器 | ✅ 可以 | 更灵活，需自己配安全组，价格略高 |
+| 函数计算 FC | ❌ 不适合 | 本项目的访谈/报告走 **SSE 长连接流式输出**，FC 有超时与缓冲限制，会卡成"半天不出字" |
+| OSS 静态托管 | ❌ 不适合 | 只能放前端，没有后端就调不了 LLM |
+
+**推荐选型**：轻量应用服务器 → 地域选**中国香港 / 新加坡（免备案，即开即用）**；
+若已有备案域名，选华东/华北，国内访问更快。
+
+**部署步骤**（脚本已准备好 `deploy/setup-aliyun.sh`）：
+
+```bash
+# 1) 阿里云控制台：轻量应用服务器 → 系统镜像选 Alibaba Cloud Linux 3 或 Ubuntu 22.04
+# 2) 安全组放行 80、443（这一步脚本做不了，必须控制台点）
+# 3) SSH 登上去执行：
+curl -O https://raw.githubusercontent.com/Licktlove/GodView/main/deploy/setup-aliyun.sh
+chmod +x setup-aliyun.sh && ./setup-aliyun.sh
+```
+
+### 方式 E2：腾讯云轻量应用服务器 / CVM（同属国内首选，流程对称）
+
+```bash
+# 1) 腾讯云控制台 → 防火墙放行 22 / 80 / 443
+# 2) SSH 登上去执行（镜像选 Ubuntu 22.04 / TencentOS 3）：
+curl -O https://raw.githubusercontent.com/Licktlove/GodView/main/deploy/setup-tencent.sh
+chmod +x setup-tencent.sh && ./setup-tencent.sh
+```
+脚本会装 Docker（**腾讯云内网镜像源** `mirrors.cloud.tencent.com` + `mirror.ccs.tencentyun.com` 拉取加速）
+→ 拉代码 → 生成 `backend/.env` 并提示填 `LLM_API_KEY` → `docker compose up -d --build` → 验证健康检查。
+跑完访问 `http://公网IP:8080`；要上 80 端口就配 `deploy/nginx-godview.conf`（SSE 免缓冲已配好）。
+
+> 腾讯云内置的 **CloudBase / EdgeOne Pages** 也可以托管，但云函数/静态托管**跑不了 SSE 长连接**，
+> 访谈与报告的流式效果会受影响——**推荐轻量服务器/CVM 直接跑容器**。
+脚本会装 Docker（配阿里云镜像加速）→ 拉代码 → 生成 `backend/.env`（提示你填密钥）→ `docker compose up -d --build` → 配 Nginx。
+
+**三个必须注意的点**：
+
+1. **SSE 流式必须关缓冲**。访谈和报告的"打字机效果"走 `/api/chat/stream`，Nginx 默认会攒够再吐，
+   表现就是"卡住十几秒然后一次全出来"。`deploy/nginx-godview.conf` 里已经配好
+   `proxy_buffering off` + `proxy_read_timeout 3600s`，**别改成普通反代**。
+2. **备案**：境内节点的域名必须备案（数天到数周）。比赛临近就用**香港/新加坡节点 + 免备案**，
+   或者直接用 `http://公网IP` 访问（不优雅但能开）。
+3. **密钥合规**：`LLM_API_KEY` 只落在服务器 `backend/.env`，不进 Git、不进镜像。
+
 ---
 
 ## 三、部署后必须验证（提交材料前逐条过）
@@ -102,4 +149,5 @@ npm install --prefix backend   && npm start --prefix backend
 
 - 新增 `Dockerfile`（两阶段：构建前端 → 后端托管）
 - 新增 `docker-compose.yml`、`render.yaml`、`fly.toml`、`.dockerignore`、`backend/.env.example`
+- 新增阿里云部署：`deploy/setup-aliyun.sh`（一键脚本）、`deploy/nginx-godview.conf`（含 SSE 免缓冲配置）
 - 删除 `backend/package.json` 里的僵尸依赖 `"god-view-sandbox": "file:.."`（无人 require，且会让 Docker 构建把整个父目录打进去）

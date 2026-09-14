@@ -24,6 +24,16 @@ const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
 const DATA_DIR = path.join(__dirname, 'data', 'experiments');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// 思考模式开关：默认 off —— 实测关闭后 token 消耗降约 70%，推演/访谈/报告质量基本无损
+//   LLM_THINKING=on   打开思考（消耗大）
+//   LLM_THINKING=auto 不向网关传该字段（兼容不支持 enable_thinking 的网关）
+const THINKING = (process.env.LLM_THINKING || 'off').toLowerCase();
+function applyThinking(body) {
+  if (THINKING === 'on') body.enable_thinking = true;
+  else if (THINKING === 'off') body.enable_thinking = false;
+  return body;
+}
+
 // 清理 LLM 输出里的 <think> 与 markdown 代码围栏，便于 JSON 解析
 function cleanLLM(s) {
   s = (s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
@@ -49,7 +59,7 @@ app.post('/api/chat', async (req, res) => {
   const adjTemp = /^kimi-k[23]/.test(LLM_MODEL) ? 1 : temperature;
   // 推理模型需要额外 token 做 reasoning，给足上限
   const adjMax = /^kimi-k[23]/.test(LLM_MODEL) ? Math.max(max_tokens, 6000) : max_tokens;
-  const body = { model: LLM_MODEL, messages, temperature: adjTemp, max_tokens: adjMax };
+  const body = applyThinking({ model: LLM_MODEL, messages, temperature: adjTemp, max_tokens: adjMax });
   if (json) body.response_format = { type: 'json_object' };
 
   let r;
@@ -94,7 +104,7 @@ app.post('/api/chat/stream', async (req, res) => {
   }
   const adjTemp = /^kimi-k[23]/.test(LLM_MODEL) ? 1 : temperature;
   const adjMax = /^kimi-k[23]/.test(LLM_MODEL) ? Math.max(max_tokens, 6000) : max_tokens;
-  const body = { model: LLM_MODEL, messages, temperature: adjTemp, max_tokens: adjMax, stream: true };
+  const body = applyThinking({ model: LLM_MODEL, messages, temperature: adjTemp, max_tokens: adjMax, stream: true });
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -179,12 +189,21 @@ app.get('/api/experiments', (req, res) => {
     .map((f) => {
       try {
         const j = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf8'));
+        // name 历史上曾被误存为事件对象，强制收敛成可读字符串
+        let name = j.name;
+        if (typeof name === 'object' && name !== null) name = '未命名推演';
+        else if (typeof name !== 'string') name = '未命名推演';
+        const s = j.state || {};
         return {
           id: j.id,
-          name: j.name,
+          name,
           createdAt: j.createdAt,
-          nodes: (j.state && j.state.entities && j.state.entities.length) || 0,
-          edges: (j.state && j.state.edges && j.state.edges.length) || 0,
+          updatedAt: j.updatedAt || j.createdAt,
+          scenario: typeof s.scenarioId === 'string' ? s.scenarioId : '',
+          seed: typeof s.seed === 'string' ? s.seed.slice(0, 40) : '',
+          hasReport: !!(s.report || (s.reportSections && Object.keys(s.reportSections).length)),
+          nodes: (s.entities && s.entities.length) || 0,
+          edges: (s.edges && s.edges.length) || 0,
         };
       } catch (e) {
         return null;
@@ -201,6 +220,25 @@ app.get('/api/experiment/:id', (req, res) => {
   const p = path.join(DATA_DIR, id + '.json');
   if (!fs.existsSync(p)) return res.status(404).json({ error: '未找到实验' });
   res.json(JSON.parse(fs.readFileSync(p, 'utf8')));
+});
+
+// 更新已有实验（推演过程中多次补全：先建骨架，报告生成后补全文）
+app.put('/api/experiment/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) return res.status(400).json({ error: '非法实验 id' });
+  const p = path.join(DATA_DIR, id + '.json');
+  if (!fs.existsSync(p)) return res.status(404).json({ error: '未找到实验' });
+  try {
+    const rec = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const { name, state } = req.body || {};
+    if (name !== undefined) rec.name = name;
+    if (state !== undefined) rec.state = state;
+    rec.updatedAt = new Date().toISOString();
+    fs.writeFileSync(p, JSON.stringify(rec, null, 2));
+    res.json({ id, name: rec.name });
+  } catch (e) {
+    res.status(500).json({ error: '更新实验失败：' + (e.message || e) });
+  }
 });
 
 app.delete('/api/experiment/:id', (req, res) => {
