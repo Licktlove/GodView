@@ -68,10 +68,15 @@
                   现场：生成实体 → 出报告 → 打开 05 作战台看动作与回测。访谈开场：{{ store.scenario.flagship.interviewQ }}
                 </div>
                 <div class="assumption-box">
-                  <div class="assumption-label">假设事件 <span class="assumption-hint">世界设定的前提，会注入抽取与整个推演</span></div>
+                  <div class="assumption-label">假设事件 <span class="assumption-hint">图谱只解释；匹配关键词才改 05「下一周」数字。仅写「企业团购」不算截流。</span></div>
                   <div class="assumption-input-row">
-                    <input class="assumption-input" v-model="assumptionInput" placeholder="如：竞品新店开业大促 / 阴雨一周" @keyup.enter="addAssumption" />
+                    <input class="assumption-input" v-model="assumptionInput" placeholder="如：竞品新店开业 / 阴雨一周 / 跟价打价格战" @keyup.enter="addAssumption" />
                     <button class="btn-secondary" @click="addAssumption" :disabled="!assumptionInput.trim()">添加</button>
+                  </div>
+                  <div class="assumption-keys">
+                    <button type="button" class="assumption-key" v-for="k in keywordGuide" :key="k.key" @click="addAssumptionText(k.sample)">
+                      {{ k.sample }}<small>{{ k.effect }}</small>
+                    </button>
                   </div>
                   <div class="assumption-tags" v-if="store.assumptions.length">
                     <span class="assumption-tag" v-for="a in store.assumptions" :key="a.id">
@@ -337,7 +342,7 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(5) ? '+' : '−' }}</span><span class="badge" :class="store.ops.loaded ? 'success' : 'pending'">{{ store.ops.loaded ? 'POS' : 'Pending' }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(5)">
-                <div v-if="!store.ops.loaded" class="step-lock-hint"><span>○</span><span>未找到学清路店 POS 聚合结果。后端运行 python scripts/ingest_pos.py</span></div>
+                <div v-if="!store.ops.loaded" class="step-lock-hint"><span>○</span><span>点「学清路店下周」后加载 POS 回测。初始化会清空作战台。</span></div>
                 <ActPanel v-else />
               </div>
             </div>
@@ -432,7 +437,8 @@ import { loadDemo, loadFlagshipProposition } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
 import { listScenarios } from './scenarios';
-import { loadStoreOps, posEvidenceText, matchPlaybookToGraph } from './engine/posOps';
+import { posEvidenceText, matchPlaybookToGraph } from './engine/posOps';
+import { KEYWORD_GUIDE } from './engine/nextWeek';
 import HomeView from './components/HomeView.vue';
 import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
@@ -461,6 +467,7 @@ const termRef = ref(null);
 const chatRef = ref(null);
 const chatInput = ref('');
 const assumptionInput = ref('');
+const keywordGuide = KEYWORD_GUIDE;
 const analysisInput = ref('');
 const analysisRef = ref(null);
 const activityRef = ref(null);
@@ -547,7 +554,7 @@ function confirmInitialize() {
   assumptionInput.value = '';
   analysisInput.value = '';
   collapsedSections.value = new Set();
-  collapsedSteps.value = new Set([2, 3, 4]);
+  collapsedSteps.value = new Set([2, 3, 4, 5]);
   systemPanelOpen.value = preservedSystemPanelOpen;
   comparisonMode.value = preservedComparisonMode;
   pushLog('已初始化当前场景，等待输入经营问题。', 'ac');
@@ -664,10 +671,16 @@ async function extractDecisions(summary) {
 function badgeText(s) { return s === 'processing' ? 'Running' : s === 'paused' ? 'Paused' : s === 'success' ? 'Done' : 'Pending'; }
 
 // WHAT IF：假设事件管理
+function addAssumptionText(t) {
+  const text = String(t || '').trim();
+  if (!text) return;
+  if (store.assumptions.some((a) => a.text === text)) return;
+  store.assumptions.push({ id: 'asm' + Date.now(), text });
+}
 function addAssumption() {
   const t = assumptionInput.value.trim();
   if (!t) return;
-  store.assumptions.push({ id: 'asm' + Date.now(), text: t });
+  addAssumptionText(t);
   assumptionInput.value = '';
 }
 function removeAssumption(id) {
@@ -1044,6 +1057,6 @@ watch(() => store.ui.b3, (status, previous) => {
   }
 });
 watch(() => store.entities.length, () => { matchPlaybookToGraph(); });
-onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); loadStoreOps(); });
+onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); });
 onBeforeUnmount(stopAdjust);
 </script>

@@ -1,7 +1,7 @@
 import { store, pushLog, addEpisode } from '../store/sim';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 import { synthesizeKPIs } from './kpi';
-import { matchPlaybookToGraph } from './posOps';
+import { matchPlaybookToGraph, loadStoreOps } from './posOps';
 
 function applyAssumptions(list) {
   if (!Array.isArray(list) || !list.length) return;
@@ -44,6 +44,16 @@ export function loadFlagshipProposition() {
   store.ui.b1 = 'pending';
   pushLog('已填入演示命题：' + c.title, 'ok');
   (c.talkingPoints || []).forEach((t) => pushLog(t, 'ac'));
+  loadStoreOps();
+}
+
+/** 空世界、空输入时默认学清路店命题，避免现场还停在团购截流。 */
+export function fillFlagshipIfIdle() {
+  if (store.scenario.id !== 'retail' || !store.scenario.flagship) return false;
+  if (store.entities.length) return false;
+  if (store.seed.trim()) return false;
+  loadFlagshipProposition();
+  return true;
 }
 
 // 加载当前场景包的 demoData（无 LLM Key 或快速体验时使用）。

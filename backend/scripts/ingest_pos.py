@@ -371,10 +371,30 @@ def main():
         key=lambda x: -x["gmv"],
     )
 
-    # Playbook from train floor only
-    push_pool = [s for s in floor_skus if s["floor_train_profit"] > 20 and s["floor_train_gmv"] > 80]
+    # Playbook from train floor only. Keep it short enough for a Monday huddle.
+    seasonal = ("荔枝", "樱桃", "杨梅", "草莓", "西瓜")
+
+    def unit_price(s):
+        q = s["floor_train_qty"] or 0
+        return (s["floor_train_gmv"] / q) if q else 0
+
+    def is_lumpy_gift(s):
+        # 干海参/茅台这类脉冲礼品：训练期件数太少或客单价过高，不能当货架主推。
+        return s["floor_train_qty"] < 8 or unit_price(s) >= 800
+
+    def is_seasonal(s):
+        name = s["name"] or ""
+        return any(k in name for k in seasonal)
+
+    push_pool = [
+        s for s in floor_skus
+        if s["floor_train_profit"] > 20 and s["floor_train_gmv"] > 80 and not is_lumpy_gift(s)
+    ]
     push_pool.sort(key=lambda s: (s["w3_gmv"] / 9.0) - (s["w1_gmv"] / 7.0) + s["floor_train_profit"] / 50.0, reverse=True)
-    cut_pool = [s for s in floor_skus if s["w1_gmv"] > 40 and s["w3_gmv"] / 9.0 < 0.45 * (s["w1_gmv"] / 7.0)]
+    cut_pool = [
+        s for s in floor_skus
+        if s["w1_gmv"] > 40 and s["w3_gmv"] / 9.0 < 0.45 * (s["w1_gmv"] / 7.0) and not is_seasonal(s)
+    ]
     cut_pool.sort(key=lambda s: (s["w1_gmv"] / 7.0) - (s["w3_gmv"] / 9.0), reverse=True)
     lose_pool = [s for s in floor_skus if s["train_promo_discount"] > 20 and (s["train_promo_profit"] < 0 or s["train_promo_discount"] > max(s["train_promo_profit"], 0) * 1.2)]
     lose_pool.sort(key=lambda s: s["train_promo_discount"] - s["train_promo_profit"], reverse=True)
@@ -396,7 +416,7 @@ def main():
             "stop": stop,
         })
 
-    for s in push_pool[:3]:
+    for s in push_pool[:2]:
         lift = money((s["w3_gmv"] / 9.0) - (s["w1_gmv"] / 7.0))
         add_action(
             "push", "理货 / 店长", "下周一开店前", s,
@@ -406,7 +426,7 @@ def main():
             "若下周连续 3 天日销低于训练期日均的 50%，撤回堆头",
         )
 
-    for s in cut_pool[:2]:
+    for s in cut_pool[:1]:
         add_action(
             "cut", "店长 / 采购", "本周例会定，下周执行", s,
             f"砍「{s['name']}」排面：减陈列面、暂停加订，观察一周",
@@ -415,7 +435,7 @@ def main():
             "若减面后该品日销回升到月初 80%，恢复一个排面",
         )
 
-    for s in lose_pool[:3]:
+    for s in lose_pool[:2]:
         add_action(
             "stop_promo", "店长 / 促销员", "立刻停，最迟下周一档期切换", s,
             f"停「{s['name']}」亏本促：取消让利或改成会员专享小额券",
@@ -424,40 +444,7 @@ def main():
             "若停促后面价销售毛利率仍低于全店训练期水平，考虑汰换",
         )
 
-    # Store-level actions from patterns
-    eve = next((h for h in hours if h["name"].startswith("晚高峰")), None)
-    if eve and hours and eve["gmv"] >= 0.28 * sum(h["gmv"] for h in hours):
-        playbook.append({
-            "id": "a" + str(len(playbook) + 1),
-            "kind": "ops",
-            "who": "理货 / 收银",
-            "when": "每日 16:30 前",
-            "skuId": "",
-            "sku": "",
-            "cat": "全店",
-            "action": "晚高峰前把头部品补满收银口与主通道，17–21 点不断货",
-            "evidence": f"到店晚高峰 17–21 占销售额 {pct(eve['gmv'], sum(h['gmv'] for h in hours))}%（{eve['gmv']} 元）",
-            "expected": "减少晚高峰缺货，保住日盘后半段客单",
-            "stop": "若补货后该时段销售连续 3 天仍掉超 15%，改查排班而不是继续加陈列",
-        })
-
-    member_share = train_kpi["member_share"]
-    if member_share >= 40:
-        playbook.append({
-            "id": "a" + str(len(playbook) + 1),
-            "kind": "ops",
-            "who": "店长 / 会员岗",
-            "when": "下周全周",
-            "skuId": "",
-            "sku": "",
-            "cat": "会员",
-            "action": "头部品主推动作优先打给会员：停亏本全场促，改会员价/积分",
-            "evidence": f"1–23 日会员订单占比 {member_share}% ，客单价 {train_kpi['aov']} 元",
-            "expected": "同样让利更集中在复购客，降低全场砸价",
-            "stop": "若会员成交占比掉过 5 个点，检查会员价是否可见",
-        })
-
-    playbook = playbook[:10]
+    playbook = playbook[:5]
 
     def sku_brief(s, extra="train"):
         return {

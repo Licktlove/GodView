@@ -11,16 +11,23 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env'), override: true });
+
+function envStr(name, fallback = '') {
+  const v = process.env[name];
+  if (v == null || v === '') return fallback;
+  return String(v).trim().replace(/^['"]|['"]$/g, '');
+}
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '8mb' }));
 
-const PORT = process.env.PORT || 3001;
-const LLM_BASE_URL = (process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/$/, '');
-const LLM_API_KEY = process.env.LLM_API_KEY || '';
-const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat'; // 以 backend/.env 为准
+const PORT = envStr('PORT', '3001');
+const LLM_BASE_URL = envStr('LLM_BASE_URL', 'https://api.deepseek.com/v1').replace(/\/$/, '');
+const LLM_API_KEY = envStr('LLM_API_KEY');
+const LLM_MODEL = envStr('LLM_MODEL', 'deepseek-chat');
 const DATA_DIR = path.join(__dirname, 'data', 'experiments');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 

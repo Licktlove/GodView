@@ -9,7 +9,7 @@
     </div>
     <p class="act-lead">
       口径：{{ store.ops.data?.store?.period }} 到店成交（POS / 自助购，不含企业团购）。
-      决策只用 {{ trainSpan }}，{{ holdSpan }} 留作盲测。主结论看盲测坐实 / 打脸；打脸的动作留在台上。图谱只解释因果，标对齐或未对齐。
+      决策只用 {{ trainSpan }}，{{ holdSpan }} 留作盲测。台上 {{ playbook.length }} 条动作，主结论看盲测坐实 / 打脸；打脸的动作留在台上。图谱只解释因果，标对齐或未对齐。
     </p>
 
     <div class="act-kpi">
@@ -78,13 +78,37 @@
             <div class="act-row"><span>实际销售</span><b>{{ money(bt.gmvActual) }}</b></div>
             <div class="act-row"><span>预测毛利</span><b>{{ money(bt.profitPred) }}</b></div>
             <div class="act-row"><span>实际毛利</span><b>{{ money(bt.profitActual) }}</b></div>
-            <div class="act-row" v-if="bt.skuMapeMedian != null"><span>SKU 误差中位</span><b>{{ bt.skuMapeMedian }}% · n={{ bt.skuMapeN }}</b></div>
           </div>
           <div class="report-card" v-if="(bt.actualTop || []).length">
             <h3>盲测真实头部</h3>
             <div class="act-row" v-for="s in bt.actualTop.slice(0, 6)" :key="s.name">
               <span>{{ s.name }}</span><b>{{ money(s.actual) }}</b>
             </div>
+          </div>
+          <div class="report-card act-forecast">
+            <h3>下一周如果做</h3>
+            <p class="act-method">{{ nw.method }}</p>
+            <div class="act-score">
+              <div><em>{{ compact(nw.gmv) }}</em><span>预测销售</span></div>
+              <div><em>{{ compact(nw.profit) }}</em><span>预测毛利</span></div>
+              <div>
+                <em :data-delta="deltaSign(nw.dProfit)">{{ signedMoney(nw.dProfit) }}</em>
+                <span>相对底稿毛利</span>
+              </div>
+            </div>
+            <div class="act-row"><span>1–23 日外推底稿 · 销售</span><b>{{ money(nw.baseGmv) }}</b></div>
+            <div class="act-row"><span>动作 + 假设后 · 销售</span><b>{{ money(nw.gmv) }} <i :data-delta="deltaSign(nw.dGmv)">{{ signedMoney(nw.dGmv) }}</i></b></div>
+            <div class="act-row"><span>1–23 日外推底稿 · 毛利</span><b>{{ money(nw.baseProfit) }}</b></div>
+            <div class="act-row"><span>动作 + 假设后 · 毛利</span><b>{{ money(nw.profit) }} <i :data-delta="deltaSign(nw.dProfit)">{{ signedMoney(nw.dProfit) }}</i></b></div>
+            <div class="act-shocks" v-if="shockChips.length">
+              <span v-for="(s, i) in shockChips" :key="i" class="act-shock" :data-on="s.on">{{ s.label }}</span>
+            </div>
+            <p class="act-holdout" v-if="store.ops.forecastReason">{{ store.ops.forecastReason }}</p>
+            <p class="act-method" v-else-if="store.ops.forecastBusy">正在写理由（数字已由公式算出）…</p>
+            <details class="act-formula">
+              <summary>公式明细</summary>
+              <pre>{{ nw.formulaText }}</pre>
+            </details>
           </div>
         </section>
       </div>
@@ -93,9 +117,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch, onBeforeUnmount } from 'vue';
 import { store } from '../store/sim';
 import { kindLabel } from '../engine/posOps';
+import { computeNextWeek, fallbackReason } from '../engine/nextWeek';
+import { callChat } from '../services/llm';
 
 const bt = computed(() => store.ops.data?.backtest || {});
 const summary = computed(() => bt.value.actionSummary || {});
@@ -106,6 +132,16 @@ const train = computed(() => store.ops.data?.facts?.floorTrain || {});
 const full = computed(() => store.ops.data?.facts?.train || {});
 const trainSpan = computed(() => (store.ops.data?.split?.train || []).join('–') || '1–23 日');
 const holdSpan = computed(() => (store.ops.data?.split?.holdout || []).join('–') || '24–30 日');
+const nw = computed(() => computeNextWeek(store.ops.data, store.assumptions));
+const shockChips = computed(() => {
+  const shocks = nw.value.shocks || [];
+  const chips = shocks.filter((s) => s.applied).map((s) => ({ on: '1', label: s.rule || s.label }));
+  const unmatched = shocks.filter((s) => !s.applied && !s.note).length;
+  const dup = shocks.filter((s) => s.note).length;
+  if (unmatched) chips.push({ on: '0', label: unmatched + ' 条假设无关键词，数字不变' });
+  if (dup) chips.push({ on: '0', label: dup + ' 条同类假设已计一次' });
+  return chips;
+});
 
 const kpis = computed(() => {
   const t = train.value;
@@ -132,6 +168,46 @@ const factRows = computed(() => {
   ];
 });
 
+let reasonTimer = 0;
+let reasonGen = 0;
+watch(
+  () => [store.ops.data, store.assumptions.map((a) => a.text).join('\n'), nw.value.formulaText],
+  () => {
+    const snap = nw.value;
+    store.ops.forecastReason = fallbackReason(snap);
+    window.clearTimeout(reasonTimer);
+    reasonTimer = window.setTimeout(() => explainNextWeek(snap), 700);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  window.clearTimeout(reasonTimer);
+  reasonGen += 1;
+});
+
+async function explainNextWeek(snap) {
+  const id = ++reasonGen;
+  if (!store.ops.data) return;
+  store.ops.forecastBusy = true;
+  try {
+    const content = await callChat(
+      [
+        { role: 'system', content: '你是超市店长顾问。数字已经由固定公式算好，禁止改销售额/毛利、禁止编造新百分比、禁止用图谱轮数当原因。用不超过 80 字解释公式结果。' },
+        { role: 'user', content: `公式明细：\n${snap.formulaText}\n\n下一周预测销售 ${snap.gmv} 元、毛利 ${snap.profit} 元（相对底稿 ${snap.dGmv} / ${snap.dProfit}）。请写理由。` },
+      ],
+      { json: false, temperature: 0.2, max_tokens: 180 },
+    );
+    if (id !== reasonGen) return;
+    const text = String(content || '').trim();
+    store.ops.forecastReason = text || fallbackReason(snap);
+  } catch (_) {
+    if (id !== reasonGen) return;
+    store.ops.forecastReason = fallbackReason(snap);
+  } finally {
+    if (id === reasonGen) store.ops.forecastBusy = false;
+  }
+}
+
 function money(v) {
   if (v == null || v === '') return '—';
   const n = Number(v);
@@ -144,6 +220,17 @@ function compact(v) {
   if (!Number.isFinite(n)) return '—';
   if (n >= 10000) return (n / 10000).toFixed(1) + '万';
   return n.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+}
+function signedMoney(v) {
+  const n = Math.round(Number(v) || 0);
+  const s = n.toLocaleString('zh-CN') + ' 元';
+  return n > 0 ? '+' + s : s;
+}
+function deltaSign(v) {
+  const n = Number(v) || 0;
+  if (n > 0) return 'up';
+  if (n < 0) return 'down';
+  return 'flat';
 }
 function fmtMape(v) {
   return v == null ? '—' : v + '%';

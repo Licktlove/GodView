@@ -1,5 +1,6 @@
 import { store, pushLog } from '../store/sim';
 import { api } from '../api/client';
+import { computeNextWeek } from './nextWeek';
 
 export function posEvidenceText() {
   const d = store.ops?.data;
@@ -21,7 +22,27 @@ export function posEvidenceText() {
     `回测（星期几均值→24–30 日到店）：销售 MAPE ${fmtMape(b.gmvMape)}，毛利 MAPE ${fmtMape(b.profitMape)}，头部20交叉 ${b.top20Overlap}/${b.top20Size}。`,
     b.actionSummary ? `动作盲测：坐实 ${b.actionSummary.hit} 条，打脸 ${b.actionSummary.miss} 条，证据不足 ${b.actionSummary.insufficient} 条（打脸保留）。` : '',
     pb ? `作战台动作：\n${pb}` : '',
+    nextWeekEvidence(d),
   ].filter(Boolean).join('\n');
+}
+
+function nextWeekEvidence(d) {
+  const nw = computeNextWeek(d, store.assumptions);
+  if (!nw?.baseGmv) return '';
+  const shocks = (nw.shocks || []).filter((s) => s.applied).map((s) => s.label);
+  return [
+    '【下一周预测 · 固定公式，禁止改数字；24–30 日盲测真数不动；图谱与轮数不进公式】',
+    `底稿（1–23 日星期几均值外推 7 天）销售 ${nw.baseGmv} 元，毛利 ${nw.baseProfit} 元。`,
+    `动作单 + 假设后：销售 ${nw.gmv} 元，毛利 ${nw.profit} 元（相对底稿 ${fmtDelta(nw.dGmv)} / ${fmtDelta(nw.dProfit)}）。`,
+    shocks.length ? `已匹配假设关键词：${shocks.join('、')}。` : '当前假设无关键词匹配，大数只叠加动作单。',
+    '仅「企业团购」不算截流。未匹配关键词的假设只解释、不改销售/毛利。',
+  ].join('\n');
+}
+
+function fmtDelta(v) {
+  const n = Math.round(Number(v) || 0);
+  const s = n.toLocaleString('zh-CN') + ' 元';
+  return n > 0 ? '+' + s : s;
 }
 
 export function kindLabel(kind) {
@@ -62,7 +83,7 @@ export function applyPosToRetailScenario(data) {
     s.flagship.interviewQ = '这些亏本促销再打下去，你还会进店吗？';
     s.flagship.talkingPoints = [
       '口播① 这不是故事沙盘：学清路店 6 月真 POS，1–23 日决策，24–30 日回测。',
-      '口播② 命题只有一句：下周推什么、砍什么、停哪场亏本促。',
+      '口播② 命题只有一句：下周推什么、砍什么、停哪场亏本促。台上五条，打脸留着。',
       '口播③ 图谱解释因果；作战台给店长动作。主结论看盲测坐实/打脸，打脸留着。图谱只标对齐或未对齐。',
     ];
   }
@@ -81,7 +102,7 @@ export async function loadStoreOps() {
     store.ui.b5 = 'success';
     applyPosToRetailScenario(data);
     matchPlaybookToGraph();
-    pushLog('已加载 ' + (data.store?.name || '门店') + ' POS 作战台（' + (data.ingest?.rows || 0) + ' 行）', 'ok');
+    pushLog('已加载 ' + (data.store?.name || '门店') + ' POS 作战台（' + (data.ingest?.rows || 0) + ' 行，' + ((data.playbook || []).length) + ' 条动作）', 'ok');
     return data;
   } catch (err) {
     store.ops.loaded = false;
