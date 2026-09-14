@@ -3,21 +3,6 @@ import { api } from '../api/client';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000];
 
-function unwrapLlmError(err) {
-  const d = err?.response?.data;
-  if (d && d.error) {
-    let extra = d.detail || '';
-    try {
-      const j = JSON.parse(d.detail);
-      extra = j.error?.message || j.message || extra;
-    } catch (_) { /* keep extra */ }
-    const e = new Error(d.error + (extra && extra !== d.error ? '：' + extra : ''));
-    e.response = err.response;
-    throw e;
-  }
-  throw err;
-}
-
 async function retryWithBackoff(fn, label = 'LLM') {
   let lastErr;
   for (let i = 0; i <= MAX_RETRIES; i++) {
@@ -26,7 +11,7 @@ async function retryWithBackoff(fn, label = 'LLM') {
     } catch (err) {
       lastErr = err;
       const status = err?.response?.status;
-      if (status && status < 500 && status !== 429) unwrapLlmError(err);
+      if (status === 400 || status === 401) throw err;
       if (i < MAX_RETRIES) {
         const delay = RETRY_DELAYS[i] || 4000;
         console.warn(`[${label}] 第 ${i + 1} 次重试，${delay}ms 后…`);
@@ -34,7 +19,7 @@ async function retryWithBackoff(fn, label = 'LLM') {
       }
     }
   }
-  unwrapLlmError(lastErr);
+  throw lastErr;
 }
 
 // 调用后端 /api/chat 代理（密钥在服务端，前端不持有）

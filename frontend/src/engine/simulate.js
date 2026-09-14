@@ -5,7 +5,6 @@ import { detectCommunities, detectBridgeNodes, detectConflicts } from './analyti
 import { getScenario } from '../scenarios';
 import { typeColorFor } from './palette';
 import { predictKPIs } from './kpi';
-import { posEvidenceText, matchPlaybookToGraph } from './posOps';
 import { fillEntityQuota, uniqueEntities } from './entityQuota';
 import { shouldSummarize, evolveMemories, memoryBlock } from './memory';
 
@@ -25,14 +24,6 @@ function isPersonType(type) {
 export { isPersonType };
 
 function fill(t, ...args) { return t.replace(/\{(\w+)\}/g, (m, k) => (k in args[0] ? args[0][k] : m)); }
-
-function friendlyExtractError(err) {
-  const msg = String(err?.message || err || '');
-  if (/insufficient account balance/i.test(msg)) {
-    return '模型账户余额不足，请充值后再生成实体';
-  }
-  return msg;
-}
 
 // 把 prompt 模板里的 {domain} 替换为当前场景领域
 function P(key, extra = {}) { return fill(scn().prompts[key] || '', { domain: scn().domain, ...extra }); }
@@ -135,7 +126,7 @@ export async function genEntities() {
     store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
   } catch (err) {
     store.ui.b1 = 'pending';
-    pushLog('实体抽取失败：' + friendlyExtractError(err) + '（可点「加载示例」）', 'err');
+    pushLog('实体抽取失败：' + err.message + '（可点「加载示例」）', 'err');
   } finally {
     store.ui.genRunning = false;
   }
@@ -468,7 +459,7 @@ export async function genOutline(evidence) {
   const prop = propositionText();
   const outline = await callChat(
     [{ role: 'system', content: P('sysOutline', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing, proposition: prop }) },
-     { role: 'user', content: `推演终态：\n${summary}\n\n图谱检索证据：\n${ev}\n\n${posEvidenceText()}\n\n请规划报告大纲（JSON）。结论必须能落到 SKU / 责任人 / 停手条件；引用 POS 数字，禁止编造未出现的销量。` }],
+     { role: 'user', content: `推演终态：\n${summary}\n\n图谱检索证据：\n${ev}\n\n请规划报告大纲（JSON）。` }],
     { json: true, temperature: 0.5, max_tokens: 900 }
   );
   return outline;
@@ -481,7 +472,7 @@ export async function genSection(title, outline, prevDone) {
   const sectionSummary = summary + '\n\n已有章节：' + (prevDone || []).map(s => s.slice(0, 120)).join('；');
   const content = await callChat(
     [{ role: 'system', content: P('sysSection', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing }) },
-     { role: 'user', content: `报告标题：${outline?.title || ''}\n核心命题：${prop}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n门店真数：\n${posEvidenceText()}\n\n请撰写本章实质性内容（200-350字，Markdown）。数字只能引用 POS 硬约束；图谱与真数对不上写「图谱未对齐」；对错以盲测坐实/打脸为准。` }],
+     { role: 'user', content: `报告标题：${outline?.title || ''}\n核心命题：${prop}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n请撰写本章实质性内容（200-350字，Markdown）。` }],
     { json: false, temperature: 0.6, max_tokens: 1200 }
   );
   return content || '（生成失败）';
@@ -511,7 +502,6 @@ export async function genReport() {
     }
     store.causalChains = await extractCausalChains(summary);
     store.decisions = await extractDecisions(summary);
-    matchPlaybookToGraph();
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
     const lens = reportLens();
     store.report = {
@@ -546,7 +536,7 @@ async function extractCausalChains(summary) {
 async function extractDecisions(summary) {
   try {
     const data = await callChat([{ role: 'system', content: P('sysDecision') },
-      { role: 'user', content: '推演终态：\n' + summary + '\n\n' + posEvidenceText() + '\n\n请生成3-5条决策建议，必须具体到 SKU 或岗位动作。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0,"based_on":["依据"]}]}' }],
+      { role: 'user', content: '推演终态：\n' + summary + '\n\n请生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0,"based_on":["依据"]}]}' }],
       { json: true, temperature: 0.5, max_tokens: 1000 });
     const decisions = (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
     pushLog('生成决策建议 ' + decisions.length + ' 条', 'ac');
@@ -575,6 +565,5 @@ export function analystSystemPrompt() {
   const summary = graphSummary();
   const ev = retrievalText();
   const kpis = (store.scenario.kpiSchema || []).join('、');
-  const pos = posEvidenceText();
-  return `你是「${store.scenario.domain}」推演世界的全局分析师。你的职责是对图谱推演的**整体局势**给出解释与判断，而不是扮演某个角色。\n\n当前世界图谱：\n${summary}\n\n${ev}\n\n${pos}\n\n关键 KPI：${kpis}\n回答要求：先说结论再给依据；能引用 POS 真数就引用；图谱与 POS 冲突时标明「图谱未对齐」。语言简洁（不超过 150 字）。`;
+  return `你是「${store.scenario.domain}」推演世界的全局分析师。你的职责是对图谱推演的**整体局势**给出解释与判断，而不是扮演某个角色。\n\n当前世界图谱：\n${summary}\n\n${ev}\n\n关键 KPI：${kpis}\n回答要求：基于图谱证据作答，先说结论再给依据；数据支持处引用具体实体/关系；语言简洁（不超过 150 字）。`;
 }

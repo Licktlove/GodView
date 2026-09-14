@@ -63,11 +63,8 @@ export const store = reactive({
   // OBSERVE 元层分析对话（问全局，区别于 Interview 问个体）
   analysis: { messages: [], running: false },
 
-  // ACT 作战台：学清路店 POS 预聚合结果（不随世界重置清空）
-  ops: { loaded: false, data: null },
-
   ui: {
-    b1: 'pending', b2: 'pending', b3: 'pending', b4: 'pending', b5: 'pending',
+    b1: 'pending', b2: 'pending', b3: 'pending', b4: 'pending',
     genRunning: false, simRunning: false, reportRunning: false,
     enrichRunning: false,
     step1Done: false,
@@ -94,7 +91,6 @@ export function resetWorld() {
   store.kpiCurves = {};
   store.comparison = { active: false, baseline: null, withAssumptions: null };
   store.ui.b1 = 'pending'; store.ui.b2 = 'pending'; store.ui.b3 = 'pending'; store.ui.b4 = 'pending';
-  store.ui.b5 = store.ops.loaded ? 'success' : 'pending';
   store.ui.step1Done = false;
 }
 

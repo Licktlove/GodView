@@ -1,71 +1,28 @@
 import { store, pushLog, addEpisode } from '../store/sim';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 import { synthesizeKPIs } from './kpi';
-import { matchPlaybookToGraph } from './posOps';
-
-function applyAssumptions(list) {
-  if (!Array.isArray(list) || !list.length) return;
-  store.assumptions = list.map((text, i) => ({
-    id: 'asm_demo_' + i,
-    text: typeof text === 'string' ? text : text.text,
-  }));
-}
-
-function asPilotTask(decision, index) {
-  return {
-    id: decision.id || 'd' + (index + 1),
-    action: `在有限范围内验证：${decision.action || '关键经营动作'}`,
-    owner: decision.owner || '业务负责人',
-    reasoning: decision.reasoning || '该动作来自演示推演，尚未用真实业务结果验证。',
-    based_on: decision.based_on || [],
-    required_data: decision.required_data || ['相关门店/客群交易明细', '成本、库存与执行记录'],
-    pilot_scope: decision.pilot_scope || '由责任角色选定一个最小可控的门店、客群或商品范围。',
-    treatment: decision.treatment || decision.action || '在处理组执行单一经审批的干预。',
-    control: decision.control || '选择条件相近且保持原策略的对照组。',
-    metric: decision.metric || '预先约定核心业务指标，并与对照组比较。',
-    stop_rule: decision.stop_rule || '证据不足、指标恶化或超出授权范围时停止并复核。',
-    promotion_rule: decision.promotion_rule || '结果可比且达到预先约定阈值后，才提交全量审批。',
-    expected_gain: '待真实数据与试验验证',
-    confidence: 0,
-    status: 'pilot-only',
-    execution: '暂不全量执行；经人工审批后仅启动小范围试验',
-  };
-}
-
-/** 只填种子和假设，留给现场点「生成实体」走真 LLM。 */
-export function loadFlagshipProposition() {
-  const c = store.scenario.flagship;
-  if (!c) { pushLog('当前场景没有旗舰演示命题', 'err'); return; }
-  store.seed = c.seed;
-  applyAssumptions(c.assumptions);
-  if (c.entN) store.entN = c.entN;
-  if (c.rounds) store.rounds = c.rounds;
-  if (c.perR) store.perR = c.perR;
-  store.ui.b1 = 'pending';
-  pushLog('已填入演示命题：' + c.title, 'ok');
-  (c.talkingPoints || []).forEach((t) => pushLog(t, 'ac'));
-}
 
 // 加载当前场景包的 demoData（无 LLM Key 或快速体验时使用）。
+// 各场景示例数据在 scenarios/*.js 的 demoData 字段里定义。
 export function loadDemo() {
   const demo = store.scenario.demoData;
   if (!demo) { pushLog('当前场景无内置示例', 'err'); return; }
-  store.seed = demo.seed || store.seed;
-  if (demo.assumptions) applyAssumptions(demo.assumptions);
-
   pushLog('加载示例推演（非实时 LLM）', 'ac');
   store.entities = demo.entities.map(e => ({ ...e }));
   store.edges = demo.edges.map(([s, t, r, round]) => ({ source: s, target: t, relation: r, _new: false, round, status: 'active', created_by: s, reason: '', effect: '' }));
   store.episodes = {};
   store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
-  store.lockedIds = Array.isArray(demo.lockedIds) ? [...demo.lockedIds] : [];
   store.ui.b1 = 'success';
   store.ui.step1Done = true;
 
-  const episodes = demo.episodes || [];
-  episodes.forEach((ep) => addEpisode(ep.id, { round: ep.round, text: ep.text, targetName: ep.targetName, relation: ep.relation, effect: ep.effect }));
+  addEpisode('store_mgr', { round: 1, text: '与供应商缺货协商：3天缓冲期', targetName: '生鲜供应商', relation: '缺货协商', effect: '降低缺货风险' });
+  addEpisode('staff', { round: 1, text: '关联推荐新茶：客单价+15%', targetName: '明前新茶', relation: '关联推荐', effect: '客单价+15%' });
 
-  const waves = demo.waves || [];
+  const waves = [
+    { round: 1, add: [{ id: 'group_buy', name: '社区团购', type: '竞品', persona: '低价截流', goal: '囤货客' }], rel: [['group_buy', 'price_sensitive', '截流']] },
+    { round: 2, add: [{ id: 'heatwave', name: '高温预警', type: '环境', persona: '外部', goal: '—', specs: '38°C+', impact: '需求激增', trend: '短期', lifecycle: '3-5天' }], rel: [['heatwave', 'fresh_tea', '需求激增']] },
+    { round: 3, add: [{ id: 'new_sk', name: '直播达人', type: '组织', persona: '带货', goal: '曝光', age: 28, gender: '女', mbti: 'ENFP', bio: '粉丝5万+', traits: ['影响力强'], preferences: ['直播'] }], rel: [['new_sk', 'fresh_tea', '爆款'], ['new_sk', 'loyal_vip', '私域转化']] },
+  ];
   waves.forEach((w) => {
     w.add.forEach((ne) => { if (!store.entities.some(x => x.id === ne.id)) store.entities.push({ ...ne, _new: true, _bornRound: w.round }); });
     w.rel.forEach(([s, t, r]) => {
@@ -77,28 +34,41 @@ export function loadDemo() {
 
   store.ui.b2 = 'success';
 
+  // Feature 1+5: Analytics
   store.conflicts = detectConflicts(store.edges);
   store.communities = detectCommunities(store.entities, store.edges);
   store.bridgeNodes = detectBridgeNodes(store.entities, store.edges, store.communities);
 
-  store.causalChains = demo.causalChains || [];
-  store.decisions = (demo.decisions || []).map(asPilotTask);
-  store.reportOutline = demo.reportOutline || null;
-  store.reportSections = demo.reportSections || {};
-  store.report = demo.report ? {
-    ...demo.report,
-    verdict: '演示推演仅用于生成受控试验，不形成收益承诺或全量执行指令。',
-    confidence: 0,
-    confidence_note: '合成演示数据；未接入真实业务结果。',
-    execution_decision: '暂不全量执行；仅在责任角色完成数据核验并人工审批后，启动有限范围的对照试验。',
-  } : null;
-  if (store.report) {
-    store.ui.b3 = 'success';
-    store.ui.b4 = 'pending';
-  }
+  // Feature 3: Causal chains
+  store.causalChains = [
+    { path: ['staff', 'fresh_tea', 'kpi_gmv'], relations: ['关联推荐', '贡献增长'], effect: '+15% GMV', confidence: 0.75 },
+    { path: ['competitor', 'price_sensitive'], relations: ['比价流失'], effect: '-12% 客流', confidence: 0.65 },
+    { path: ['new_sk', 'fresh_tea', 'loyal_vip'], relations: ['爆款', '私域转化'], effect: '私域+8%', confidence: 0.6 },
+  ];
+
+  // Feature 2: Decisions
+  store.decisions = [
+    { id: 'd1', action: '会员专享新茶预售', reasoning: '高忠诚会员复购稳定，新茶毛利45%', expected_gain: '+8%复购', confidence: 0.8, status: 'proposed' },
+    { id: 'd2', action: '竞品到店即送券', reasoning: '价格敏感客群流失12%', expected_gain: '挽留15%', confidence: 0.6, status: 'proposed' },
+    { id: 'd3', action: '直播达人合作', reasoning: '已带动新茶爆款，单场200份', expected_gain: '曝光5万+', confidence: 0.7, status: 'proposed' },
+  ];
+
+  // Report
+  store.reportOutline = {
+    title: '社区团购截流应对推演报告',
+    summary: '竞品+环境扰动下，新茶与私域是稳增长主线',
+    sections: [{ title: '推演概述' }, { title: '关键实体' }, { title: '因果链' }, { title: '改进建议' }, { title: '风险' }],
+  };
+  store.reportSections = {
+    0: { content: '3轮推演，10→13实体，10→15关系。涌现社区团购、高温预警、直播达人。', status: 'done' },
+    1: { content: '**价格敏感客群**：流失12-30%\n**高忠诚会员**：复购稳定\n**明前新茶**：日销翻倍\n**店长**：承压最大', status: 'done' },
+    2: { content: '导购推荐→新茶动销→GMV增长；竞品促销→客群流失。', status: 'done' },
+    3: { content: '1. 新茶预售+8%复购\n2. 到店即送券挽留15%\n3. 直播合作曝光5万+', status: 'done' },
+    4: { content: '- 团购截流（高）\n- 高温缺货（中）', status: 'done' },
+  };
+  store.report = { verdict: '新茶与私域是稳增长主线', confidence: 0.35, confidence_note: '合成演示数据', fullContent: '' };
+  store.ui.b3 = 'success';
+  store.ui.b4 = 'pending';
   synthesizeKPIs(store.growth);
-  matchPlaybookToGraph();
   pushLog('示例推演完成：节点 ' + store.entities.length + '，关系 ' + store.edges.length, 'ok');
-  const hint = store.scenario.flagship;
-  if (hint?.interviewQ) pushLog('访谈开场：点「价格敏感客群」→ ' + hint.interviewQ, 'ac');
 }

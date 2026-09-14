@@ -110,32 +110,9 @@
           </div>
           <div class="rv-verdict">
             <div class="rv-verdict-line"><span class="rv-verdict-label">结论</span><span class="rv-verdict-value">{{ store.report.verdict }}</span></div>
-            <div class="rv-verdict-line" v-if="store.report.execution_decision"><span class="rv-verdict-label">当前决定</span><span class="rv-verdict-value">{{ store.report.execution_decision }}</span></div>
             <div class="rv-verdict-line"><span class="rv-verdict-label">置信度</span><span class="rv-verdict-value">{{ ((store.report.confidence || 0) * 100).toFixed(0) }}%</span></div>
             <div class="rv-verdict-line" v-if="store.report.confidence_note"><span class="rv-verdict-label">说明</span><span class="rv-verdict-value">{{ store.report.confidence_note }}</span></div>
           </div>
-        </section>
-
-        <section class="rv-section" v-if="store.decisions?.length">
-          <div class="rv-section-head">
-            <span class="rv-section-num">→</span>
-            <h2>验证型行动清单</h2>
-          </div>
-          <p class="rv-action-note">以下不是收益承诺或自动执行指令。每项行动必须先完成数据核验，并由责任角色人工审批。</p>
-          <article v-for="d in store.decisions" :key="d.id" class="rv-decision-card">
-            <div class="rv-decision-title"><h3>{{ d.action }}</h3><span>{{ d.execution || '仅可立项验证' }}</span></div>
-            <dl>
-              <dt>责任角色</dt><dd>{{ d.owner || '业务负责人' }}</dd>
-              <dt>推演依据</dt><dd>{{ d.reasoning }}<template v-if="d.based_on?.length">（{{ d.based_on.join('、') }}）</template></dd>
-              <dt>执行前补齐</dt><dd>{{ (d.required_data || ['相关实际业务数据']).join('、') }}</dd>
-              <dt>试验范围</dt><dd>{{ d.pilot_scope || '—' }}</dd>
-              <dt>处理组动作</dt><dd>{{ d.treatment || d.test || '—' }}</dd>
-              <dt>可比对照组</dt><dd>{{ d.control || '—' }}</dd>
-              <dt>观察指标</dt><dd>{{ d.metric || '—' }}</dd>
-              <dt>停止条件</dt><dd>{{ d.stop_rule || '—' }}</dd>
-              <dt>升级条件</dt><dd>{{ d.promotion_rule || '—' }}</dd>
-            </dl>
-          </article>
         </section>
 
         <footer class="rv-footer">GodView 推演报告 · 推演 ≠ 预测，重大决策请结合实际数据校准</footer>
@@ -317,13 +294,6 @@ const graphSnapshot = computed(() => {
 .rv-verdict-label { color: #9CA3AF; min-width: 60px; font-size: 12px; padding-top: 2px; }
 .rv-verdict-value { color: #E5E7EB; }
 .rv-empty { color: #6B7280; font-size: 14px; padding: 24px 0; }
-.rv-action-note { margin: 0 0 12px; color: #FCD34D; font-size: 13px; line-height: 1.7; }
-.rv-decision-card { margin: 10px 0; padding: 15px 17px; border: 1px solid rgba(251,191,36,0.32); border-radius: 10px; background: rgba(251,191,36,0.055); }
-.rv-decision-title { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.rv-decision-title h3 { margin: 0 0 11px; color: #F8FAFC; font-size: 15px; line-height: 1.5; }
-.rv-decision-title span { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; color: #FCD34D; background: rgba(251,191,36,0.12); font-size: 10px; }
-.rv-decision-card dl { display: grid; grid-template-columns: 90px 1fr; gap: 7px 10px; margin: 0; font-size: 12.5px; line-height: 1.65; }
-.rv-decision-card dt { color: #94A3B8; }.rv-decision-card dd { margin: 0; color: #D1D5DB; }
 .rv-footer { margin-top: 42px; font-size: 12px; color: #64748B; text-align: center; }
 
 @media (max-width: 760px) {
@@ -346,6 +316,5 @@ const graphSnapshot = computed(() => {
   .rv-figure-svg, .rv-kpi-chart { background: #fff; border: 1px solid rgba(0,0,0,0.12); }
   .rv-factlist li, .rv-entity-card { background: #fff; border: 1px solid rgba(0,0,0,0.12); }
   .rv-verdict { background: #fff; border: 1px solid rgba(0,0,0,0.12); }
-  .rv-decision-card { background: #fff; border-color: rgba(146,64,14,0.24); }.rv-decision-title h3 { color: #1C1C1E; }.rv-decision-card dd { color: #374151; }
 }
 </style>
