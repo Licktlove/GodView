@@ -585,7 +585,7 @@ async function genReportStream() {
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = [];
   const summary = graphSummary();
-    const evidence = retrievalText() + comparisonEvidenceText() + '\n\n' + posEvidenceText();
+  const evidence = retrievalText() + comparisonEvidenceText() + '\n\n' + posEvidenceText();
   try {
     pushLog('报告规划中…（先检索图谱证据）', 'ac');
     const outline = await genOutline(evidence);
@@ -610,7 +610,13 @@ async function genReportStream() {
     store.decisions = await extractDecisions(summary);
     matchPlaybookToGraph();
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
-    store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告（流式）', fullContent: allContent };
+    store.report = {
+      verdict: outline.summary || outline.title,
+      confidence: 0,
+      confidence_note: '推演关系与 POS 证据尚需通过受控试验校验；不形成收益承诺。',
+      execution_decision: '暂不全量执行；仅在责任角色完成数据核验并人工审批后，启动有限范围的对照试验。',
+      fullContent: allContent,
+    };
     store.ui.b3 = 'success'; store.ui.b4 = 'pending';
     if (store.ops.loaded) store.ui.b5 = 'success';
     pushLog('✓ 决策报告已生成（流式）', 'ok');
@@ -629,8 +635,29 @@ async function extractCausalChains(summary) {
 }
 async function extractDecisions(summary) {
   try {
-    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。动作必须具体到 SKU 或岗位，并引用 POS。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n' + posEvidenceText() + '\n\n生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0}]}' }], json: true, temperature: 0.5, max_tokens: 1000 });
-    return (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
+    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。不得承诺收益、编造百分比或给出全量执行指令。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n可用 POS 证据：\n' + posEvidenceText() + '\n\n生成3-5条有限范围经营试验建议。每条必须有具体对象、责任角色、执行前数据、处理组动作、可比对照组、观察指标、停止条件与升级条件。输出JSON：{"decisions":[{"id":"d1","action":"针对具体对象的试验动作","owner":"责任角色","reasoning":"只引用已有实体、关系或 POS 证据的理由","based_on":["已有实体或关系"],"required_data":["试验前需要的数据"],"pilot_scope":"最小可控业务范围","treatment":"处理组动作","control":"对照组保持不变的策略","metric":"观察指标","stop_rule":"停止条件","promotion_rule":"提交全量审批的条件"}]}' }], json: true, temperature: 0.35, max_tokens: 1400 });
+    const known = store.entities.map(e => e.name).filter(Boolean);
+    return (data.decisions || []).map((d, i) => {
+      const basedOn = (d.based_on || []).filter(x => known.some(name => String(x).includes(name)));
+      return {
+        id: d.id || 'd' + (i + 1),
+        action: d.action || '围绕关键传导链开展小范围验证',
+        owner: d.owner || '业务负责人',
+        reasoning: d.reasoning || '推演中存在待核验的传导关系。',
+        based_on: basedOn,
+        required_data: Array.isArray(d.required_data) && d.required_data.length ? d.required_data : ['与该行动相关的实际业务数据'],
+        pilot_scope: d.pilot_scope || '由责任角色选择一个最小可控的门店、客群或商品范围。',
+        treatment: d.treatment || d.action || '在处理组执行经人工审批的单一干预。',
+        control: d.control || '选择条件相近且保持原策略的对照组。',
+        metric: d.metric || '执行前定义可观测的业务指标与对照组。',
+        stop_rule: d.stop_rule || '证据不足、指标恶化或超出授权范围时停止并复核。',
+        promotion_rule: d.promotion_rule || '处理组与对照组结果可比，且核心指标达到预先约定阈值后，才提交全量审批。',
+        expected_gain: '待真实数据与试验验证',
+        confidence: 0,
+        status: 'pilot-only',
+        execution: '暂不全量执行；经人工审批后仅启动小范围试验',
+      };
+    });
   } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
 }
 

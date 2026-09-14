@@ -11,6 +11,27 @@ function applyAssumptions(list) {
   }));
 }
 
+function asPilotTask(decision, index) {
+  return {
+    id: decision.id || 'd' + (index + 1),
+    action: `在有限范围内验证：${decision.action || '关键经营动作'}`,
+    owner: decision.owner || '业务负责人',
+    reasoning: decision.reasoning || '该动作来自演示推演，尚未用真实业务结果验证。',
+    based_on: decision.based_on || [],
+    required_data: decision.required_data || ['相关门店/客群交易明细', '成本、库存与执行记录'],
+    pilot_scope: decision.pilot_scope || '由责任角色选定一个最小可控的门店、客群或商品范围。',
+    treatment: decision.treatment || decision.action || '在处理组执行单一经审批的干预。',
+    control: decision.control || '选择条件相近且保持原策略的对照组。',
+    metric: decision.metric || '预先约定核心业务指标，并与对照组比较。',
+    stop_rule: decision.stop_rule || '证据不足、指标恶化或超出授权范围时停止并复核。',
+    promotion_rule: decision.promotion_rule || '结果可比且达到预先约定阈值后，才提交全量审批。',
+    expected_gain: '待真实数据与试验验证',
+    confidence: 0,
+    status: 'pilot-only',
+    execution: '暂不全量执行；经人工审批后仅启动小范围试验',
+  };
+}
+
 /** 只填种子和假设，留给现场点「生成实体」走真 LLM。 */
 export function loadFlagshipProposition() {
   const c = store.scenario.flagship;
@@ -61,10 +82,16 @@ export function loadDemo() {
   store.bridgeNodes = detectBridgeNodes(store.entities, store.edges, store.communities);
 
   store.causalChains = demo.causalChains || [];
-  store.decisions = demo.decisions || [];
+  store.decisions = (demo.decisions || []).map(asPilotTask);
   store.reportOutline = demo.reportOutline || null;
   store.reportSections = demo.reportSections || {};
-  store.report = demo.report || null;
+  store.report = demo.report ? {
+    ...demo.report,
+    verdict: '演示推演仅用于生成受控试验，不形成收益承诺或全量执行指令。',
+    confidence: 0,
+    confidence_note: '合成演示数据；未接入真实业务结果。',
+    execution_decision: '暂不全量执行；仅在责任角色完成数据核验并人工审批后，启动有限范围的对照试验。',
+  } : null;
   if (store.report) {
     store.ui.b3 = 'success';
     store.ui.b4 = 'pending';
