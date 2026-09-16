@@ -1,6 +1,5 @@
 import { reactive } from 'vue';
 import { getScenario, DEFAULT_SCENARIO_ID } from '../scenarios';
-import { invalidateKPITasks } from '../engine/kpi';
 
 export const store = reactive({
   health: { ok: false, model: '', keyConfigured: false, baseURL: '' },
@@ -53,18 +52,26 @@ export const store = reactive({
 
   nodeInfo: null,
 
-  // KPI 数值预测曲线：每轮推演后 LLM 估算各 KPI 值
-  kpiCurves: {},  // { kpiName: [{ round, value, trend, confidence }] }
-  kpiPanelMode: 'kpi',  // 'kpi' | 'count'
-
   // 对比模拟：基线 vs 干预
   comparison: { active: false, baseline: null, withAssumptions: null },
 
   // OBSERVE 元层分析对话（问全局，区别于 Interview 问个体）
   analysis: { messages: [], running: false },
 
+  // ACT 作战台：仅「零售 · 学清路生态」按需加载学清路店 POS。
+  // approvals / feedback 只记录人工审批与回放回流，不会自动执行任何业务动作。
+  ops: {
+    loaded: false, data: null, forecastReason: '', forecastBusy: false, approvals: {}, feedback: {},
+    // 世界记忆只保存被人工记录的回放结论；它不改写 POS 原始事实。
+    worldMemory: [],
+    // LLM 每轮提出的可证伪关系假设，供报告、回放和下一次推演读取。
+    hypotheses: [],
+    // 盲测评分与世界记忆分离：评分不会自动反哺模型，须由运营人员确认后才进入记忆。
+    hypothesisScores: [],
+  },
+
   ui: {
-    b1: 'pending', b2: 'pending', b3: 'pending', b4: 'pending',
+    b1: 'pending', b2: 'pending', b3: 'pending', b4: 'pending', b5: 'pending',
     genRunning: false, simRunning: false, reportRunning: false,
     enrichRunning: false,
     step1Done: false,
@@ -77,7 +84,6 @@ export function pushLog(msg, cls = '') {
 }
 
 export function resetWorld() {
-  invalidateKPITasks();
   store.entities = []; store.edges = []; store.growth = []; store.episodes = {};
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = []; store.conflicts = [];
@@ -88,9 +94,18 @@ export function resetWorld() {
   store.lockedIds = [];
   store.analysis = { messages: [], running: false };
   store.nodeInfo = null;
-  store.kpiCurves = {};
   store.comparison = { active: false, baseline: null, withAssumptions: null };
   store.ui.b1 = 'pending'; store.ui.b2 = 'pending'; store.ui.b3 = 'pending'; store.ui.b4 = 'pending';
+  store.ops.loaded = false;
+  store.ops.data = null;
+  store.ops.forecastReason = '';
+  store.ops.forecastBusy = false;
+  store.ops.approvals = {};
+  store.ops.feedback = {};
+  store.ops.worldMemory = [];
+  store.ops.hypotheses = [];
+  store.ops.hypothesisScores = [];
+  store.ui.b5 = 'pending';
   store.ui.step1Done = false;
 }
 

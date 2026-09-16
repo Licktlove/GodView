@@ -11,6 +11,9 @@ backend/.env
 # 实验数据（本地运行时生成）
 backend/data/experiments/*.json
 
+# 门店原始 POS 明细（大体积 + 含用户级字段，禁止入库）
+backend/data/raw/
+
 # 系统/编辑器
 .DS_Store
 *.log

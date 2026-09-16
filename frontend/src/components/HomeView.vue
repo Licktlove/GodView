@@ -104,7 +104,7 @@
     <section class="page flow" id="flow">
       <div class="page-head">
         <span class="page-kicker">HOW IT WORKS · 01—04</span>
-        <h2>推演，分四步</h2>
+        <h2>推演，分五步</h2>
         <p>从一个经营假设开始，让数字世界自行生长，最后把推演结果转化为可解释的行动建议。</p>
       </div>
       <div class="flow-cards">
@@ -136,7 +136,7 @@
     <section class="page scenes" id="scenarios">
       <div class="page-head">
         <span class="page-kicker">SCENARIO PACKS</span>
-        <h2>四个开箱即推的场景包</h2>
+        <h2>五个开箱即推的场景包</h2>
         <p>每一套场景包都内置领域知识、初始实体与预测指标，选一个就能开始推演。</p>
       </div>
       <div class="scenes-grid">
@@ -168,7 +168,7 @@
     <section class="page final">
       <div class="final-inner">
         <h2>准备好先在未来演练一次了吗？</h2>
-        <p>无需账号 · 本地演示环境 · 四个场景包即选即推演</p>
+        <p>无需账号 · 本地演示环境 · 五个场景包即选即推演</p>
         <div class="hero-cta">
           <button type="button" class="access-primary" @click="$emit('enter')">进入决策控制台 <span class="arr">→</span></button>
           <button type="button" class="access-secondary" @click="$emit('demo')">▶ 观看自动演示</button>
@@ -200,13 +200,13 @@ function scrollTo(id) {
 }
 
 // 系统规格数字 —— 全部来自代码真实配置，可验证：
-// 4 个推演阶段 / 4 个场景包（scenarios/index.js 注册）
-// 12 个初始实体（retail defaultParams.entN）/ 5 项 KPI（retail kpiSchema）
+// 5 个推演阶段 / 5 个场景包（scenarios/index.js 注册）
+// 12 个初始实体（retail defaultParams.entN）/ 5 项经营观察口径（retail kpiSchema）
 const stats = [
-  { n: '04', tag: 'STAGES', l: '推演阶段' },
-  { n: '04', tag: 'SCENARIO PACKS', l: '场景包' },
+  { n: '05', tag: 'STAGES', l: '推演阶段' },
+  { n: '05', tag: 'SCENARIO PACKS', l: '场景包' },
   { n: '12', tag: 'SEED ENTITIES', l: '初始实体' },
-  { n: '05', tag: 'LIVE KPIS', l: '实时预测指标' },
+  { n: '05', tag: 'OPERATING LENSES', l: '经营观察口径' },
 ];
 
 // 核心能力卡片
@@ -215,6 +215,7 @@ const capabilities = [
   { glyph: '⛓', title: '因果链可追溯', desc: '每条结论都能回溯到触发它的事件，决策不再是一句“黑箱”结论。' },
   { glyph: '◉', title: '实时活动流', desc: '世界在生长，动作、关系、转折全程直播，过程往往比结果更值钱。' },
   { glyph: '▤', title: '图谱检索报告', desc: '基于证据而非套话生成多章节报告，附因果链与可落地的行动建议。' },
+  { glyph: '▣', title: 'POS 作战台', desc: '用门店真数给出推、砍、停促动作，并用盲测周回测准不准。' },
   { glyph: '⌁', title: '随时问节点', desc: '与任意实体对话，或询问全局分析师，追问“为什么是这样传导”。' },
   { glyph: '⇄', title: '基线 vs 干预', desc: '同一场景跑两遍，直观对比“做了 / 没做”某决策带来的差异。' },
 ];
@@ -225,11 +226,13 @@ const phases = [
   { en: 'SIMULATE', cn: '自生长推演', state: 'GROW', glyph: '◌', desc: '多 agent 并行反应，涌现新实体与新关系，实时活动流呈现世界动态。', outputLabel: 'FLOW', outcome: '动作 → 关系 → 生长' },
   { en: 'OBSERVE', cn: '决策报告', state: 'REASON', glyph: '▤', desc: '通过图谱检索证据，生成多章节报告，并提取因果链与决策建议。', outputLabel: 'EVIDENCE', outcome: '证据 → 因果 → 建议' },
   { en: 'INTERVIEW', cn: '随时问节点', state: 'ASK', glyph: '⌁', desc: '与任意实体深度对话，或询问全局分析师，追问决策背后的传导路径。', outputLabel: 'DIALOGUE', outcome: '节点 → 对话 → 追问' },
+  { en: 'ACT', cn: '作战台', state: 'OPERATE', glyph: '▣', desc: '把 POS 真数变成下周动作单，并用盲测周验证销售与毛利准不准。', outputLabel: 'PLAYBOOK', outcome: '事实 → 动作 → 回测' },
 ];
 
 // 场景包（与 scenarios/index.js 注册一致）
 const scenarios = [
   { en: 'RETAIL', cn: '零售经营', desc: '门店、客流、客单价、复购、坪效、毛利的多智能体推演。' },
+  { en: 'XUEQING RETAIL', cn: '学清路生态', desc: '绑定门店成交数据的促销策略沙盘，聚焦停促、会员券与毛利约束。' },
   { en: 'SUPPLY CHAIN', cn: '供应链', desc: '产能、库存、物流与牛鞭效应在整条链路上的传导。' },
   { en: 'MACRO', cn: '宏观经济', desc: '央行、财政、汇率、通胀与消费之间的宏观冲击推演。' },
   { en: 'AI INDUSTRY', cn: 'AI 产业', desc: '从模型之争到框架之战，未来几年的产业演化推演。' },
@@ -642,7 +645,7 @@ onMounted(() => {
 .cap-card p { margin: 0; font-size: 14px; line-height: 1.7; color: #8FB8D4; }
 
 /* ============ 推演流程 ============ */
-.flow-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.flow-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
 .flow-card {
   display: flex;
   flex-direction: column;

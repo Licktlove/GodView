@@ -4,9 +4,11 @@ import { computeImportance } from './importance';
 import { detectCommunities, detectBridgeNodes, detectConflicts } from './analytics';
 import { getScenario } from '../scenarios';
 import { typeColorFor } from './palette';
-import { predictKPIs } from './kpi';
+import { posEvidenceText, posTrainingContext, matchPlaybookToGraph } from './posOps';
+import { spawnAgentsFromAnomalies } from './anomaly';
 import { fillEntityQuota, uniqueEntities } from './entityQuota';
 import { shouldSummarize, evolveMemories, memoryBlock } from './memory';
+import { buildPromotionWorld, isPromotionSandboxQuestion, promotionWorldPriorText } from './promoSandbox';
 
 export { computeImportance, typeColorFor, memoryBlock };
 
@@ -24,6 +26,21 @@ function isPersonType(type) {
 export { isPersonType };
 
 function fill(t, ...args) { return t.replace(/\{(\w+)\}/g, (m, k) => (k in args[0] ? args[0][k] : m)); }
+
+function friendlyExtractError(err) {
+  const msg = String(err?.message || err || '');
+  if (/insufficient account balance/i.test(msg)) {
+    return '模型账户余额不足，请充值后再生成实体';
+  }
+  return msg;
+}
+
+function isXueqingPromotionSandbox() {
+  return scn().id === 'xueqing'
+    && Boolean(scn().promotionSandbox)
+    && store.ops.loaded
+    && isPromotionSandboxQuestion(store.seed);
+}
 
 // 把 prompt 模板里的 {domain} 替换为当前场景领域
 function P(key, extra = {}) { return fill(scn().prompts[key] || '', { domain: scn().domain, ...extra }); }
@@ -51,13 +68,54 @@ export async function genEntities() {
   store.causalChains = []; store.decisions = []; store.conflicts = [];
   store.communities = []; store.bridgeNodes = [];
   store.activityFeed = []; store.simRound = 0;
-  store.kpiCurves = {};
   try {
+    // 学清路店场景：事实底座来自训练期 POS；LLM 只补充待验证的行为假设。
+    if (isXueqingPromotionSandbox()) {
+      const world = buildPromotionWorld(store.ops.data);
+      store.entities = world.entities;
+      world.relations.forEach((relation) => {
+        store.edges.push({
+          source: relation.source, target: relation.target, relation: relation.relation,
+          _new: false, round: 0, status: 'active', created_by: relation.source, reason: '训练期 POS 场景包', effect: '',
+        });
+      });
+      store.lockedIds = world.lockedIds;
+      store.ops.hypotheses = [];
+      const prior = promotionWorldPriorText(store.ops.data, store.ops.worldMemory);
+      try {
+        const data = await callChat([
+          { role: 'system', content: '你是零售推演世界建模师。你只能基于世界先验提出待验证的角色行为假设，不能创造销售、毛利、库存、客群规模或促销机制等业务事实。输出严格 JSON。' },
+          { role: 'user', content: `${prior}\n\n命题：${seed}\n\n现有事实角色：${store.entities.map((e) => `${e.id}:${e.name}`).join('、')}\n请补充最多 4 个“假设角色”（仅限顾客分群、门店岗位或经营约束），每个角色必须说明它不是事实，并列出可被后续数据推翻的条件。若该假设可做盲测，必须提前声明一个指标和方向；允许指标仅为 store_gmv_per_day、store_profit_per_day、margin、member_share、promo_share，方向只能是 up/down/flat，不能写数字。输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型","persona":"假设性行为倾向","goal":"目标","hypothesis":"待验证行为假设","evidence_refs":["先验中的证据名称"],"falsifier":"何种未来观察会推翻","validation_target":"允许指标或unknown","expected_direction":"up|down|flat|unknown"}]} ` },
+        ], { json: true, temperature: 0.45, max_tokens: 1400 });
+        (data.entities || []).slice(0, 4).forEach((item, index) => {
+          if (!item?.id || store.entities.some((e) => e.id === item.id)) return;
+          store.entities.push({ ...item, _hypothesis: true, _bornRound: 0 });
+          store.ops.hypotheses.push({
+            id: `h-init-${index + 1}`, round: 0, actor: item.name, relation: '行为假设',
+            hypothesis: item.hypothesis || item.persona || '待未来数据验证的行为关系。', confidence: 0.4,
+            evidence_refs: Array.isArray(item.evidence_refs) ? item.evidence_refs : [],
+            falsifier: item.falsifier || '未来观察与该行为倾向不一致。', status: 'pending',
+            validation_target: item.validation_target || 'unknown', expected_direction: item.expected_direction || 'unknown',
+          });
+        });
+      } catch (err) {
+        pushLog(`世界先验已加载；假设角色补充失败：${friendlyExtractError(err)}`, 'err');
+      }
+      store.entN = store.entities.length;
+      store.rounds = Math.max(3, Math.min(6, Number(store.rounds) || 4));
+      store.perR = Math.min(Math.max(3, Number(store.perR) || 4), store.entities.length);
+      store.ui.b1 = 'success';
+      store.ui.step1Done = true;
+      store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
+      pushLog(`已加载「${s.promotionSandbox.title}」：${world.entities.length} 个事实角色，${store.entities.length - world.entities.length} 个待验证假设角色`, 'ok');
+      return;
+    }
     const sys = P('sysGen');
     const asm = assumptionsText();
+    const posContext = s.id === 'xueqing' && store.ops.loaded ? `\n\n${posTrainingContext()}` : '';
     const extractionTokens = Math.max(3500, Math.min(8000, 1800 + N * 180));
     const usr =
-      `场景：${seed}\n\n${asm ? asm + '\n\n' : ''}请严格抽取恰好 ${N} 个相互作用的实体（agent），不能少于或多于 ${N} 个。` +
+      `场景：${seed}${posContext}\n\n${asm ? asm + '\n\n' : ''}请严格抽取恰好 ${N} 个相互作用的实体（agent），不能少于或多于 ${N} 个。` +
       `\n允许的类型（可自定义新类型）：${(s.entityTypes || []).join('、')}` +
       `\n严格输出JSON：{"entities":[{"id":"英文唯一id","name":"中文名","type":"实体类型","persona":"一句话人格/行为特征","goal":"核心目标"}],` +
       `"relations":[{"source":"实体id","target":"实体id","relation":"关系(<=12字)"}],` +
@@ -116,6 +174,8 @@ export async function genEntities() {
       }
     });
     pushLog(`LLM 抽取实体 ${store.entities.length} 个、关系 ${store.edges.length} 条` + (hooked.length ? `（孤儿挂接 ${hooked.length}）` : ''), 'ac');
+    // 异常拦截触发链：POS 检出的真实异常 → 现场生成对应 Agent 并连边
+    try { spawnAgentsFromAnomalies(); } catch (e2) { pushLog('异常 Agent 注入失败：' + (e2.message || e2), 'err'); }
     if (data.recommend) {
       const r = data.recommend;
       if (r.rounds) { store.rounds = Math.max(1, Math.min(200, r.rounds)); pushLog(`推荐轮数: ${store.rounds}（${r.reason || ''}）`, 'ac'); }
@@ -126,7 +186,7 @@ export async function genEntities() {
     store.growth = [{ round: 0, nodes: store.entities.length, edges: store.edges.length }];
   } catch (err) {
     store.ui.b1 = 'pending';
-    pushLog('实体抽取失败：' + err.message + '（可点「加载示例」）', 'err');
+    pushLog('实体抽取失败：' + friendlyExtractError(err) + '（可点「加载示例」）', 'err');
   } finally {
     store.ui.genRunning = false;
   }
@@ -237,7 +297,8 @@ function worldContext(recentRounds) {
     return (s ? s.name : x.source) + '→' + (t ? t.name : x.target) + ':' + (x.relation || '');
   }).join('；');
   const asm = assumptionsText();
-  return `实体：${ents}\n已有关系：${eds || '（暂无边）'}` + (asm ? `\n${asm}` : '') + (recentEps.length ? `\n近期事件：\n${recentEps.join('；')}` : '');
+  const retailPrior = isXueqingPromotionSandbox() ? `\n\n${promotionWorldPriorText(store.ops.data, store.ops.worldMemory)}` : '';
+  return `实体：${ents}\n已有关系：${eds || '（暂无边）'}` + (asm ? `\n${asm}` : '') + (recentEps.length ? `\n近期事件：\n${recentEps.join('；')}` : '') + retailPrior;
 }
 
 async function runRound(round, total) {
@@ -251,8 +312,8 @@ async function runRound(round, total) {
       data = await callChat(
         [{ role: 'system', content: P('sysRound') },
          { role: 'user', content: `世界局势：\n${ctx}\n\n焦点 agent：${e.name}（类型：${e.type}；人格：${e.persona || '—'}；目标：${e.goal || '—'}）${memoryBlock(e)}\n轮次 ${round}/${total}。` +
-           `\n请基于它与邻居的关系及世界局势做出反应；若它有演化记忆，其心境与立场应与记忆保持一致。输出JSON：{"interactions":[{"from":"焦点名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"对关键指标的影响简述"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型","persona":"一句话","goal":"核心目标"}]}` }],
-        { json: true, temperature: 0.9, max_tokens: 1500 }
+           `\n请基于它与邻居的关系及世界局势做出反应；若它有演化记忆，其心境与立场应与记忆保持一致。${isXueqingPromotionSandbox() ? '零售场景中，所有新关系都是待验证假设：禁止生成或修改销量、金额、毛利、库存、客群规模和未存在的促销事实；effect 只写可能的方向与条件。若可做盲测，提前声明 validation_target（仅 store_gmv_per_day/store_profit_per_day/margin/member_share/promo_share）和 expected_direction（仅 up/down/flat），不得写预测数字。' : ''}输出JSON：{"interactions":[{"from":"焦点名或id","to":"另一实体名或id","relation":"关系(<=12字)","effect":"可能影响及成立条件","hypothesis":"可验证的关系假设","confidence":0.0,"evidence_refs":["上下文证据"],"falsifier":"什么观察会推翻","validation_target":"指标或unknown","expected_direction":"up|down|flat|unknown"}],"new_entities":[{"id":"新英文id","name":"新实体中文名","type":"实体类型","persona":"一句话","goal":"核心目标"}]}` }],
+        { json: true, temperature: isXueqingPromotionSandbox() ? 0.45 : 0.9, max_tokens: 1500 }
       );
     } catch (err) { pushLog(`轮${round} ${e.name} 交互失败：${err.message}`, 'err'); return; }
     (data.interactions || []).forEach(it => {
@@ -264,6 +325,16 @@ async function runRound(round, total) {
           const tn2 = store.entities.find(x => x.id === t)?.name || it.to;
           pushActivity(round, fn, `${fn} → ${tn2} 建立「${it.relation}」`, 'rel');
         }
+      }
+      if (isXueqingPromotionSandbox() && it.hypothesis) {
+        store.ops.hypotheses.push({
+          id: `h-r${round}-${store.ops.hypotheses.length + 1}`, round, actor: e.name,
+          relation: it.relation || '关系假设', hypothesis: it.hypothesis,
+          confidence: Math.max(0, Math.min(1, Number(it.confidence) || 0.4)),
+          evidence_refs: Array.isArray(it.evidence_refs) ? it.evidence_refs : [],
+          falsifier: it.falsifier || '后续 POS 或试验观察未出现该关系。', status: 'pending',
+          validation_target: it.validation_target || 'unknown', expected_direction: it.expected_direction || 'unknown',
+        });
       }
       if (it.effect) {
         const tn = store.entities.find(x => x.id === nameToId(it.to))?.name || it.to;
@@ -313,7 +384,7 @@ export async function runSim() {
   const total = +store.rounds;
   const startRound = isResume ? Math.min(store.simRound + 1, total) : 1;
   if (isResume && startRound > total) {
-    // 全部轮次已跑完的续跑：直接完成（KPI 已生成，simRound 已定格）
+    // 全部轮次已跑完的续跑：直接完成。
     runAnalytics();
     pushLog(`✓ 推演已完成全部 ${total} 轮（继续无新轮次）`, 'ok');
     store.ui.b2 = 'success';
@@ -339,8 +410,6 @@ export async function runSim() {
       // #8：暂停只设 store.simWantsPause（runId 不变），本轮后自然停
       if (store.simWantsPause) { endedByPause = true; store.simWantsPause = false; break; }
       const added = await runRound(r, total);
-      // KPI 数值预测：每轮推演后估算关键指标
-      predictKPIs(r).catch(() => {});
       // 🧠 记忆演化：每 2 轮把新行为压缩为记忆，人格随推演变化
       if (shouldSummarize(r)) {
         lastMemoryRound = await evolveMemories(lastMemoryRound);
@@ -459,8 +528,8 @@ export async function genOutline(evidence) {
   const prop = propositionText();
   const outline = await callChat(
     [{ role: 'system', content: P('sysOutline', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing, proposition: prop }) },
-     { role: 'user', content: `推演终态：\n${summary}\n\n图谱检索证据：\n${ev}\n\n请规划报告大纲（JSON）。` }],
-    { json: true, temperature: 0.5, max_tokens: 900 }
+     { role: 'user', content: `推演终态：\n${summary}\n\n图谱检索证据：\n${ev}\n\n${posEvidenceText({ includeEvaluation: false, includeForecast: false })}\n\n请规划“经营决策建议”大纲（JSON）：最多 3 章，标题必须短；只保留行动建议、行动依据、责任人和停止条件；不要输出日期、数据窗口、历史、盲测、回放、POS、模型或推演过程。` }],
+    { json: true, temperature: 0.35, max_tokens: 500 }
   );
   return outline;
 }
@@ -472,8 +541,8 @@ export async function genSection(title, outline, prevDone) {
   const sectionSummary = summary + '\n\n已有章节：' + (prevDone || []).map(s => s.slice(0, 120)).join('；');
   const content = await callChat(
     [{ role: 'system', content: P('sysSection', { stakeholder: lens.stakeholder, concerns: lens.concerns, framing: lens.framing }) },
-     { role: 'user', content: `报告标题：${outline?.title || ''}\n核心命题：${prop}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n请撰写本章实质性内容（200-350字，Markdown）。` }],
-    { json: false, temperature: 0.6, max_tokens: 1200 }
+     { role: 'user', content: `报告标题：${outline?.title || ''}\n核心命题：${prop}\n当前章节：${title}\n推演数据：\n${sectionSummary}\n\n经营证据：\n${posEvidenceText({ includeEvaluation: false, includeForecast: false })}\n\n只写 3 条项目符号：判断、依据、风险或停止条件。每条 35–55 个汉字，使用店长听得懂的话；不要提日期、数据窗口、历史、盲测、回放、POS、模型或推演过程。` }],
+    { json: false, temperature: 0.4, max_tokens: 700 }
   );
   return content || '（生成失败）';
 }
@@ -502,6 +571,7 @@ export async function genReport() {
     }
     store.causalChains = await extractCausalChains(summary);
     store.decisions = await extractDecisions(summary);
+    matchPlaybookToGraph();
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
     const lens = reportLens();
     store.report = {
@@ -536,7 +606,7 @@ async function extractCausalChains(summary) {
 async function extractDecisions(summary) {
   try {
     const data = await callChat([{ role: 'system', content: P('sysDecision') },
-      { role: 'user', content: '推演终态：\n' + summary + '\n\n请生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0,"based_on":["依据"]}]}' }],
+      { role: 'user', content: '推演终态：\n' + summary + '\n\n' + posEvidenceText({ includeEvaluation: false, includeForecast: false }) + '\n\n请生成3-5条决策建议，必须具体到 SKU 或岗位动作。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0,"based_on":["依据"]}]}' }],
       { json: true, temperature: 0.5, max_tokens: 1000 });
     const decisions = (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
     pushLog('生成决策建议 ' + decisions.length + ' 条', 'ac');
@@ -565,5 +635,6 @@ export function analystSystemPrompt() {
   const summary = graphSummary();
   const ev = retrievalText();
   const kpis = (store.scenario.kpiSchema || []).join('、');
-  return `你是「${store.scenario.domain}」推演世界的全局分析师。你的职责是对图谱推演的**整体局势**给出解释与判断，而不是扮演某个角色。\n\n当前世界图谱：\n${summary}\n\n${ev}\n\n关键 KPI：${kpis}\n回答要求：基于图谱证据作答，先说结论再给依据；数据支持处引用具体实体/关系；语言简洁（不超过 150 字）。`;
+  const pos = posEvidenceText({ includeEvaluation: false, includeForecast: false });
+  return `你是「${store.scenario.domain}」推演世界的全局分析师。你的职责是对图谱推演的**整体局势**给出解释与判断，而不是扮演某个角色。\n\n当前世界图谱：\n${summary}\n\n${ev}\n\n${pos}\n\n关键 KPI：${kpis}\n回答要求：先说结论再给依据；能引用 POS 真数就引用；图谱与 POS 冲突时标明「图谱未对齐」。语言简洁（不超过 150 字）。`;
 }

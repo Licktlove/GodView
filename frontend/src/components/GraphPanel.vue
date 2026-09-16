@@ -104,7 +104,8 @@
             </div>
           </div>
           <!-- Chat button -->
-          <div style="margin-top:10px">
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+            <button class="tool-btn" style="width:100%;justify-content:center" @click="$emit('intervene', selectedNode)">⚡ 人工介入 · 补充情报</button>
             <button class="tool-btn" style="width:100%;justify-content:center" @click="$emit('chat', selectedNode)">💬 与此实体对话</button>
           </div>
         </div>
@@ -143,7 +144,7 @@ import { store } from '../store/sim';
 import { computeImportance, typeColorFor } from '../engine/simulate';
 import { detectCommunities, detectBridgeNodes, detectConflicts, shortestPath } from '../engine/analytics';
 
-defineEmits(['chat', 'start']);
+defineEmits(['chat', 'start', 'intervene']);
 
 const NODE_R_MIN = 6;
 const NODE_R_MAX = 26;
@@ -246,10 +247,12 @@ function applyEmphasis() {
 
   node.selectAll('circle:not(.bridge-ring)')
     .attr('opacity', n => empty ? 1 : (focusSet.has(n.id) ? 1 : 0.12))
-    .attr('stroke-width', n => empty ? (n._new ? 3 : 1.5) : (focusSet.has(n.id) ? 3 : 1.5))
-    .attr('stroke', n => empty
-      ? (n._new ? '#FF4500' : '#FFF')
-      : (focusSet.has(n.id) ? 'var(--ink)' : (n._new ? '#FF4500' : '#FFF')));
+    .attr('stroke-width', n => n._anomaly ? 4 : (empty ? (n._new ? 3 : 1.5) : (focusSet.has(n.id) ? 3 : 1.5)))
+    .attr('stroke', n => n._anomaly
+      ? (n._anomalyColor || '#FF3B30')
+      : (empty
+        ? (n._new ? '#FF4500' : '#FFF')
+        : (focusSet.has(n.id) ? 'var(--ink)' : (n._new ? '#FF4500' : '#FFF'))));
 
   node.selectAll('text')
     .attr('opacity', n => empty ? 1 : (focusSet.has(n.id) ? 1 : 0.1))
@@ -417,6 +420,8 @@ function renderGraph() {
     @keyframes bridge-pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
     .edge-conflict { animation: dash-march 0.8s linear infinite; }
     .node-new { animation: node-fade-in 1.2s ease-out; }
+    @keyframes anomaly-pulse { 0%, 100% { stroke-width: 4; } 50% { stroke-width: 8; } }
+    .node-anomaly { animation: anomaly-pulse 1.6s ease-in-out infinite; }
     .bridge-ring { animation: bridge-pulse 2s ease-in-out infinite; }
   `);
 
@@ -534,15 +539,15 @@ function renderGraph() {
   node.append('circle')
     .attr('r', d => nodeRadius(d))
     .attr('fill', d => d._isolated ? '#d2d6da' : typeColorFor(d.type))
-    .attr('stroke', d => d._new ? '#FF4500' : (d._isolated ? '#9aa0a6' : '#FFF'))
-    .attr('stroke-width', d => d._new ? 3 : 1.5)
+    .attr('stroke', d => d._anomaly ? (d._anomalyColor || '#FF3B30') : (d._new ? '#FF4500' : (d._isolated ? '#9aa0a6' : '#FFF')))
+    .attr('stroke-width', d => d._anomaly ? 4 : (d._new ? 3 : 1.5))
     .attr('stroke-dasharray', d => d._isolated ? '4 3' : null)
     .attr('filter', d => {
-      // 前3枢纽节点加光晕
+      // 前3枢纽节点加光晕；异常 Agent 一律加光晕（视觉上"被唤起"）
       const top3 = nodes.slice().sort((a, b) => (b._imp || 0) - (a._imp || 0)).slice(0, 3);
-      return top3.includes(d) ? 'url(#node-glow)' : null;
+      return (top3.includes(d) || d._anomaly) ? 'url(#node-glow)' : null;
     })
-    .attr('class', d => d._new ? 'node-new' : null);
+    .attr('class', d => d._anomaly ? 'node-anomaly' : (d._new ? 'node-new' : null));
 
   node.append('text')
     .text(d => d.name)

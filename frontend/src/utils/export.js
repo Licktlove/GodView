@@ -33,7 +33,6 @@ export function collectReport() {
     outline,
     sections,
     report,
-    kpiCurves: store.kpiCurves || {},
     growth: store.growth || [],
     causalChains: store.causalChains || [],
     decisions: store.decisions || [],
@@ -45,14 +44,16 @@ export function collectReport() {
 }
 
 // ---------- Markdown 构建 ----------
-function tableRow(cells) { return '| ' + cells.join(' | ') + ' |'; }
-
 export function reportMarkdown(data = collectReport()) {
   const L = [];
   L.push(`# ${data.report?.verdict || data.outline?.title || '推演报告'}`);
   L.push('');
   L.push(`> ${data.domain} · ${data.entitiesCount} 实体 / ${data.edgesCount} 关系 / ${data.rounds} 轮`);
   L.push('');
+  if (data.report?.execution_decision) {
+    L.push(`**当前决定：${data.report.execution_decision}**`);
+    L.push('');
+  }
   if (data.outline?.summary) L.push(data.outline.summary);
   L.push('');
 
@@ -68,21 +69,6 @@ export function reportMarkdown(data = collectReport()) {
     });
   } else {
     L.push(data.report?.fullContent || '（暂无报告正文）');
-    L.push('');
-  }
-
-  // KPI 摘要（取每项末值）
-  const kpiNames = Object.keys(data.kpiCurves).filter(k => data.kpiCurves[k]?.length);
-  if (kpiNames.length) {
-    L.push('## 关键指标');
-    L.push('');
-    L.push(tableRow(['KPI', '末值', '置信度', '说明']));
-    L.push(tableRow(['---', '---', '---', '---']));
-    kpiNames.forEach(k => {
-      const pts = data.kpiCurves[k];
-      const last = pts[pts.length - 1];
-      L.push(tableRow([k, String((last.value * 100).toFixed(0)) + '%', String((last.confidence * 100).toFixed(0)) + '%', last.reason || '']));
-    });
     L.push('');
   }
 
@@ -112,12 +98,22 @@ export function reportMarkdown(data = collectReport()) {
   }
 
   if (data.decisions?.length) {
-    L.push('## 决策建议');
+    L.push('## 验证型行动清单');
     L.push('');
     data.decisions.forEach(d => {
-      L.push(`- **${d.action}**（${Math.round((d.confidence || 0) * 100)}%）：${d.reasoning} 预期${d.expected_gain || '—'}`);
+      L.push(`### ${d.action}`);
+      L.push(`- 当前状态：${d.execution || '仅可立项验证，禁止自动执行'}`);
+      L.push(`- 责任角色：${d.owner || '业务负责人'}`);
+      L.push(`- 推演依据：${d.reasoning || '—'}${d.based_on?.length ? `（${d.based_on.join('、')}）` : ''}`);
+      L.push(`- 执行前补齐：${(d.required_data || ['相关实际业务数据']).join('、')}`);
+      L.push(`- 试验范围：${d.pilot_scope || '—'}`);
+      L.push(`- 处理组动作：${d.treatment || d.test || '—'}`);
+      L.push(`- 可比对照组：${d.control || '—'}`);
+      L.push(`- 观察指标：${d.metric || '—'}`);
+      L.push(`- 停止条件：${d.stop_rule || '—'}`);
+      L.push(`- 升级条件：${d.promotion_rule || '—'}`);
+      L.push('');
     });
-    L.push('');
   }
 
   if (data.assumptions?.length) {
@@ -129,7 +125,7 @@ export function reportMarkdown(data = collectReport()) {
 
   L.push('---');
   L.push('');
-  L.push('*GodView 推演报告 · 推演 ≠ 预测，重大决策请结合实际数据校准*');
+  L.push('*GodView 推演报告 · 当前行动仅用于核验假设；未经真实数据与人工审批，不得自动执行。*');
   return L.join('\n');
 }
 
@@ -140,13 +136,6 @@ function reportHTML(data = collectReport()) {
     const content = data.sections?.[i]?.content;
     if (!content) return '';
     return `<section class="rv-section"><h2>${escapeHtmlBody(s.title)}</h2><div class="rv-body">${renderMarkdown(content, s.title)}</div></section>`;
-  }).join('');
-
-  const kpiNames = Object.keys(data.kpiCurves).filter(k => data.kpiCurves[k]?.length);
-  const kpiRows = kpiNames.map(k => {
-    const pts = data.kpiCurves[k];
-    const last = pts[pts.length - 1];
-    return `<tr><td>${escapeHtmlBody(k)}</td><td>${(last.value * 100).toFixed(0)}%</td><td>${(last.confidence * 100).toFixed(0)}%</td><td>${escapeHtmlBody(last.reason || '')}</td></tr>`;
   }).join('');
 
   const evidenceText = [
@@ -166,7 +155,7 @@ function reportHTML(data = collectReport()) {
     : '';
 
   const decisionsText = data.decisions?.length
-    ? data.decisions.map(d => `<li><strong>${escapeHtmlBody(d.action)}</strong>（${Math.round((d.confidence || 0) * 100)}%）：${escapeHtmlBody(d.reasoning || '')} 预期 ${escapeHtmlBody(d.expected_gain || '—')}</li>`).join('')
+    ? data.decisions.map(d => `<li><strong>${escapeHtmlBody(d.action)}</strong><br>状态：${escapeHtmlBody(d.execution || '仅可立项验证，禁止自动执行')}<br>责任角色：${escapeHtmlBody(d.owner || '业务负责人')}<br>依据：${escapeHtmlBody(d.reasoning || '')}<br>执行前补齐：${escapeHtmlBody((d.required_data || ['相关实际业务数据']).join('、'))}<br>试验范围：${escapeHtmlBody(d.pilot_scope || '—')}<br>处理组动作：${escapeHtmlBody(d.treatment || d.test || '—')}<br>可比对照组：${escapeHtmlBody(d.control || '—')}<br>观察指标：${escapeHtmlBody(d.metric || '—')}<br>停止条件：${escapeHtmlBody(d.stop_rule || '—')}<br>升级条件：${escapeHtmlBody(d.promotion_rule || '—')}</li>`).join('')
     : '';
 
   const assumptionsText = data.assumptions?.length
@@ -222,14 +211,14 @@ ${actionsHtml}
   </div>
 </header>
 ${data.outline?.summary ? `<p class="rv-summary">${escapeHtmlBody(data.outline.summary)}</p>` : ''}
+${data.report?.execution_decision ? `<p class="rv-summary"><strong>当前决定：</strong>${escapeHtmlBody(data.report.execution_decision)}</p>` : ''}
 <div class="rv-ring"></div>
 ${sectionsHtml || `<p class="rv-summary">（暂无报告正文）</p>`}
-${kpiNames.length ? `<table class="rv-table"><thead><tr><th>KPI</th><th>末值</th><th>置信度</th><th>说明</th></tr></thead><tbody>${kpiRows}</tbody></table>` : ''}
 <div class="rv-evidence rv-no-print"><div class="rv-card-label">图谱证据</div><ul>${evidenceText || '<li>—</li>'}</ul></div>
 ${chainsText ? `<div class="rv-chains rv-no-print"><div class="rv-card-label">因果链</div><ul>${chainsText}</ul></div>` : ''}
-${decisionsText ? `<div class="rv-decisions rv-no-print"><div class="rv-card-label">决策建议</div><ul>${decisionsText}</ul></div>` : ''}
+${decisionsText ? `<div class="rv-decisions"><div class="rv-card-label">验证型行动清单</div><ul>${decisionsText}</ul></div>` : ''}
 ${assumptionsText ? `<div class="rv-assumptions rv-no-print"><div class="rv-card-label">假设事件</div><ul>${assumptionsText}</ul></div>` : ''}
-<footer class="rv-footer">GodView 推演报告 · 推演 ≠ 预测，重大决策请结合实际数据校准</footer>
+<footer class="rv-footer">GodView 推演报告 · 当前行动仅用于核验假设；未经真实数据与人工审批，不得自动执行。</footer>
 </body></html>`;
 }
 

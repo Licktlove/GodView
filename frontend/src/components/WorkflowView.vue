@@ -20,9 +20,9 @@
     <main class="workflow-content">
       <section class="workflow-hero">
         <div>
-          <span class="workflow-kicker">SYSTEM OVERVIEW / 01—04</span>
+          <span class="workflow-kicker">SYSTEM OVERVIEW / 01—05</span>
           <h1>系统如何工作</h1>
-          <p>从一个经营假设开始，让数字世界自行生长，最后把推演结果转化为可解释的行动建议。</p>
+          <p>从一个经营假设开始，让数字世界自行生长，再把真数变成店长能执行的动作，并用盲测验证准不准。</p>
         </div>
         <div class="workflow-hero-meta">
           <div class="workflow-hero-status"><i></i> SIMULATION PIPELINE READY</div>
@@ -37,7 +37,7 @@
       <section class="workflow-progress" aria-label="推演进度">
         <div class="workflow-progress-head">
           <span>SIMULATION PIPELINE</span>
-          <b>{{ completedCount }}/4 COMPLETE</b>
+          <b>{{ completedCount }}/5 COMPLETE</b>
         </div>
         <div class="workflow-progress-track">
           <template v-for="(phase, index) in phases" :key="phase.key">
@@ -59,7 +59,7 @@
         </div>
       </section>
 
-      <section class="workflow-cards" aria-label="四步推演流程">
+      <section class="workflow-cards" aria-label="五步推演流程">
         <button
           v-for="(phase, index) in phases"
           :key="phase.en"
@@ -119,6 +119,7 @@ const phases = [
   { key: 'simulate', className: 'phase-simulate', glyph: '◌', en: 'SIMULATE', cn: '自生长推演', state: 'GROW', desc: '多 agent 并行反应，涌现新实体与新关系，实时活动流呈现世界动态。', previewLabel: 'WATCH', preview: '让实体按规则互动，观察系统如何自行演化。', outputLabel: 'FLOW', outcome: '动作 → 关系 → 生长' },
   { key: 'observe', className: 'phase-observe', glyph: '▤', en: 'OBSERVE', cn: '决策报告', state: 'REASON', desc: '通过图谱检索证据，生成多章节报告，并提取因果链与决策建议。', previewLabel: 'READ', preview: '从演化轨迹中筛出证据，沉淀为可解释建议。', outputLabel: 'EVIDENCE', outcome: '证据 → 因果 → 建议' },
   { key: 'interview', className: 'phase-interview', glyph: '⌁', en: 'INTERVIEW', cn: '随时问节点', state: 'ASK', desc: '与任意实体深度对话，或询问全局分析师，追问决策背后的传导路径。', previewLabel: 'ASK', preview: '沿着因果链继续追问，定位影响决策的关键节点。', outputLabel: 'DIALOGUE', outcome: '节点 → 对话 → 追问' },
+  { key: 'act', className: 'phase-act', glyph: '▣', en: 'ACT', cn: '作战台', state: 'OPERATE', desc: '学清路店 POS 真数生成下周动作单，并用 24–30 日盲测验证准不准。', previewLabel: 'ACT', preview: '把推、砍、停促写成店长能执行的步骤，数字来自成交不是来自故事。', outputLabel: 'PLAYBOOK', outcome: '事实 → 动作 → 回测' },
 ];
 
 const completedCount = computed(() => phases.filter((phase) => phaseStatus(phase.key).tone === 'complete').length);
@@ -127,7 +128,8 @@ function recommendedKey() {
   if (!store.ui.step1Done) return 'whatIf';
   if (store.ui.b2 !== 'success') return 'simulate';
   if (store.ui.b3 !== 'success') return 'observe';
-  return 'interview';
+  if (!store.ops.loaded) return 'act';
+  return 'act';
 }
 
 const recommendedPhase = computed(() => phases.find((phase) => phase.key === recommendedKey()) || phases[0]);
@@ -147,6 +149,9 @@ function phaseStatus(key) {
     : store.entities.length
       ? { tone: 'ready', label: 'READY · 可生成', action: '生成报告' }
       : { tone: 'locked', label: 'LOCKED · 需先构建', action: '先完成构建' };
+  if (key === 'act') return store.ops.loaded
+    ? { tone: 'complete', label: 'DONE · POS 作战台', action: '查看动作' }
+    : { tone: 'locked', label: 'LOCKED · 待聚合 POS', action: '先生成真数' };
   return store.chat.messages.length
     ? { tone: 'active', label: 'ACTIVE · 对话进行中', action: '继续追问' }
     : store.ui.b2 === 'success'
@@ -229,6 +234,7 @@ function phaseStatus(key) {
 .workflow-card.phase-simulate { --phase-accent: #56d39a; --phase-border: rgba(86,211,154,0.36); --phase-wash: rgba(86,211,154,0.07); }
 .workflow-card.phase-observe { --phase-accent: #e6c15d; --phase-border: rgba(230,193,93,0.38); --phase-wash: rgba(230,193,93,0.07); }
 .workflow-card.phase-interview { --phase-accent: #8dd1fb; --phase-border: rgba(141,209,251,0.38); --phase-wash: rgba(141,209,251,0.07); }
+.workflow-card.phase-act { --phase-accent: #f4c16e; --phase-border: rgba(244,193,110,0.42); --phase-wash: rgba(244,193,110,0.08); }
 .workflow-card:hover { transform: translateY(-3px); border-color: var(--phase-accent); background: linear-gradient(145deg, var(--phase-wash), rgba(7,18,31,0.82)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 18px 34px rgba(2,12,22,0.22), 0 0 24px var(--phase-wash); }
 .workflow-card:focus-visible { outline: 2px solid var(--blue-bright); outline-offset: 4px; }
 .workflow-card.recommended { border-color: var(--phase-accent); background: linear-gradient(145deg, var(--phase-wash), rgba(7,18,31,0.8)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 16px 34px rgba(2,12,22,0.2), 0 0 24px var(--phase-wash); }

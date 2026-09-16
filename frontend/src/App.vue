@@ -33,7 +33,7 @@
         </button>
         <div class="step-divider"></div>
         <div class="workflow-step">
-          <span class="step-num-h">Step {{ currentStep }}/4</span>
+          <span class="step-num-h">Step {{ currentStep }}/5</span>
           <span class="step-name-h">{{ stepName }}</span>
         </div>
       </div>
@@ -44,7 +44,7 @@
       <WorkflowView v-else-if="viewMode==='workflow'" @back="viewMode='home'" @enter="viewMode='split'" @phase="openWorkflowPhase" />
       <template v-else>
       <div class="panel-wrapper left" :style="leftStyle">
-        <GraphPanel @chat="onChatFromGraph" @start="startWorldBuild" />
+        <GraphPanel @chat="onChatFromGraph" @start="startWorldBuild" @intervene="openIntervention" />
       </div>
       <div class="panel-wrapper right" :style="rightStyle">
         <div class="workbench-panel">
@@ -63,15 +63,30 @@
                 <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(1) ? '+' : '−' }}</span><span class="badge" :class="store.ui.b1">{{ badgeText(store.ui.b1) }}</span></span>
               </button>
               <div v-show="!collapsedSteps.has(1)">
-                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="'例：' + (store.scenario.seedExamples?.[0] || '描述你的场景…')"></textarea></div>
+                <div class="input-wrapper"><textarea class="code-input" v-model="store.seed" :placeholder="seedPlaceholder"></textarea></div>
                 <div class="preset-row">
-                  <button v-for="p in store.scenario.seedExamples" :key="p" class="preset-btn" @click="store.seed = p">{{ p.slice(0,10) }}…</button>
+                  <button v-for="(p, idx) in store.scenario.seedExamples" :key="seedTitle(p)" class="preset-btn" :class="{ star: idx===0 && store.scenario.flagship, on: seedText(p) === store.seed }" @click="applySeed(p)">{{ seedTitle(p) }}</button>
+                </div>
+                <div v-if="store.scenario.id === 'xueqing'" class="simple-question-box">
+                  <div class="simple-question-label">店长模式 · 只输入一句话</div>
+                  <div class="simple-question-hint">系统会自动带入学清路店、数据窗口和输出格式</div>
+                  <div class="simple-question-row">
+                    <button v-for="q in simpleQuestions" :key="q" type="button" class="simple-question-btn" @click="applySimpleQuestion(q)">{{ q }}</button>
+                  </div>
+                </div>
+                <div class="demo-cue" v-if="flagshipOn">
+                  现场：生成实体 → 出报告 → 打开 05 作战台看动作与回测。访谈开场：{{ store.scenario.flagship.interviewQ }}
                 </div>
                 <div class="assumption-box">
-                  <div class="assumption-label">假设事件 <span class="assumption-hint">世界设定的前提，会注入抽取与整个推演</span></div>
+                  <div class="assumption-label">假设事件 <span class="assumption-hint">图谱只解释；匹配关键词才改 05「下一周」数字。仅写「企业团购」不算截流。</span></div>
                   <div class="assumption-input-row">
-                    <input class="assumption-input" v-model="assumptionInput" placeholder="如：竞品新店开业大促 / 阴雨一周" @keyup.enter="addAssumption" />
+                    <input class="assumption-input" v-model="assumptionInput" placeholder="如：竞品新店开业 / 阴雨一周 / 跟价打价格战" @keyup.enter="addAssumption" />
                     <button class="btn-secondary" @click="addAssumption" :disabled="!assumptionInput.trim()">添加</button>
+                  </div>
+                  <div class="assumption-keys">
+                    <button type="button" class="assumption-key" v-for="k in keywordGuide" :key="k.key" @click="addAssumptionText(k.sample)">
+                      {{ k.sample }}<small>{{ k.effect }}</small>
+                    </button>
                   </div>
                   <div class="assumption-tags" v-if="store.assumptions.length">
                     <span class="assumption-tag" v-for="a in store.assumptions" :key="a.id">
@@ -84,7 +99,8 @@
                   <span>{{ store.ui.genRunning ? '生成中…' : '生成实体' }}</span><span>→</span>
                 </button>
                 <div style="text-align:center;margin-top:8px">
-                  <button class="btn-secondary" @click="onLoadDemo">加载示例</button>
+                  <button v-if="store.scenario.flagship" class="btn-secondary demo-fill" @click="loadFlagshipProposition">填入 {{ store.scenario.flagship.title || '演示' }}</button>
+                  <button class="btn-secondary" :style="store.scenario.flagship ? 'margin-left:6px' : ''" @click="onLoadDemo">加载示例</button>
                   <button v-if="store.ui.step1Done" class="btn-secondary" style="margin-left:6px" @click="enrichProfiles" :disabled="store.ui.enrichRunning">
                     {{ store.ui.enrichRunning ? '丰富中…' : '✨ 画像丰富' }}
                   </button>
@@ -240,7 +256,7 @@
             </div>
 
             <!-- Feature 2: Decisions -->
-            <div class="report-card" v-if="store.decisions.length">
+            <div class="report-card" v-if="store.scenario.id !== 'xueqing' && store.decisions.length">
               <h3>决策建议</h3>
               <div v-for="(d, i) in store.decisions" :key="i" class="decision-item">
                 <div class="decision-header">
@@ -329,6 +345,18 @@
               </div>
             </div>
 
+            <!-- Step 5: ACT 作战台（POS 真数动作 + 回测） -->
+            <div class="step-card" id="workbench-step-act" :class="{ active: store.ui.b5 === 'processing', completed: store.ops.loaded, locked: !store.ops.loaded }">
+              <button type="button" class="card-header" @click="toggleStep(5)" :aria-expanded="!collapsedSteps.has(5)">
+                <span class="card-header-title"><span class="card-step-num">05</span><span class="card-header-copy"><b>ACT</b><small>{{ store.ops.loaded ? '学清路店作战台 · POS 回测' : '等待门店真数' }}</small></span></span>
+                <span class="card-header-meta"><span class="step-collapse-icon" aria-hidden="true">{{ collapsedSteps.has(5) ? '+' : '−' }}</span><span class="badge" :class="store.ops.loaded ? 'success' : 'pending'">{{ store.ops.loaded ? 'POS' : 'Pending' }}</span></span>
+              </button>
+              <div v-show="!collapsedSteps.has(5)">
+                <div v-if="!store.ops.loaded" class="step-lock-hint"><span>○</span><span>切换到「零售 · 学清路生态」并输入推荐问题后，加载 POS 作战台。初始化会清空作战台。</span></div>
+                <ActPanel v-else />
+              </div>
+            </div>
+
             <button type="button" class="secondary-section-toggle" @click="systemPanelOpen = !systemPanelOpen" :aria-expanded="systemPanelOpen">
               <span><b>SYSTEM / PERSISTENCE</b><small>日志、对比结果与保存记录</small></span>
               <strong>{{ systemPanelOpen ? '−' : '+' }}</strong>
@@ -348,16 +376,6 @@
                   <span class="comparison-label">干预（带假设）</span>
                   <span class="comparison-stat">{{ store.comparison.withAssumptions.entities.length }} 实体 / {{ store.comparison.withAssumptions.edges.length }} 关系</span>
                 </div>
-              </div>
-              <div class="comparison-kpi-diff" v-if="store.comparison.baseline.kpiCurves && store.comparison.withAssumptions.kpiCurves">
-                <span class="kpi-diff-title">KPI 差异：</span>
-                <span v-for="kpi in Object.keys(store.comparison.withAssumptions.kpiCurves)" :key="kpi" class="kpi-diff-item">
-                  {{ kpi }}：
-                  {{ lastKpiVal(store.comparison.baseline.kpiCurves[kpi])?.toFixed(2) || '?' }}
-                  →
-                  <span :class="kpiDiffClass(kpi)">{{ lastKpiVal(store.comparison.withAssumptions.kpiCurves[kpi])?.toFixed(2) || '?' }}</span>
-                  <b :class="kpiDiffClass(kpi)" v-if="kpiDelta(kpi) != null">（{{ kpiDelta(kpi) > 0 ? '+' : '' }}{{ kpiDelta(kpi).toFixed(2) }}）</b>
-                </span>
               </div>
             </div>
 
@@ -441,22 +459,29 @@
         </div>
       </section>
     </div>
+    <InterventionPanel :open="ivOpen" :node-id="ivNodeId" @close="ivOpen = false" />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { store, pushLog, resetWorld, toggleLock, setScenario } from './store/sim';
-import { genEntities, runSim, enrichProfiles, startChat, endChat, genOutline, genSection, retrievalText, analystSystemPrompt, pauseSim, stopSim, isPersonType, memoryBlock } from './engine/simulate';
-import { loadDemo } from './engine/synthetic';
+import { genEntities, runSim, enrichProfiles, startChat, endChat, retrievalText, analystSystemPrompt, pauseSim, stopSim, isPersonType, memoryBlock } from './engine/simulate';
+import { loadDemo, loadFlagshipProposition } from './engine/synthetic';
 import { fetchHealth, streamChat } from './services/llm';
 import { api } from './api/client';
 import { listScenarios } from './scenarios';
+import { posEvidenceText, matchPlaybookToGraph, loadStoreOps } from './engine/posOps';
+import { KEYWORD_GUIDE } from './engine/nextWeek';
 import HomeView from './components/HomeView.vue';
+import InterventionPanel from './components/InterventionPanel.vue';
 import WorkflowView from './components/WorkflowView.vue';
 import GraphPanel from './components/GraphPanel.vue';
 import GrowthPanel from './components/GrowthPanel.vue';
 import ReportView from './components/ReportView.vue';
+import ActPanel from './components/ActPanel.vue';
+import { modelSelectedPromoDecisions, promotionDecisionCandidates } from './engine/promoDiagnosis';
+import { isPromotionSandboxQuestion, promotionWorldPriorText, scorePromotionHypotheses } from './engine/promoSandbox';
 import { renderMarkdown } from './utils/markdown';
 
 const scenarios = listScenarios();
@@ -481,26 +506,45 @@ const termRef = ref(null);
 const chatRef = ref(null);
 const chatInput = ref('');
 const assumptionInput = ref('');
+const keywordGuide = KEYWORD_GUIDE;
+const simpleQuestions = ['哪些促销该停？', '公开折扣改会员券会怎样？', '先收窄哪款 SKU 的折扣？'];
 const analysisInput = ref('');
 const analysisRef = ref(null);
 const activityRef = ref(null);
 const collapsedSections = ref(new Set());
-const collapsedSteps = ref(new Set([2, 3, 4]));
+const collapsedSteps = ref(new Set([2, 3, 4, 5]));
 const systemPanelOpen = ref(false);
 const comparisonMode = ref(false);
 const initConfirmOpen = ref(false);
-const workflowStepNumbers = [1, 2, 3, 4];
+const workflowStepNumbers = [1, 2, 3, 4, 5];
 
 const leftStyle = computed(() => viewMode.value === 'graph' ? { width: '100%', opacity: 1 } : viewMode.value === 'workbench' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 const rightStyle = computed(() => viewMode.value === 'workbench' ? { width: '100%', opacity: 1 } : viewMode.value === 'graph' ? { width: '0%', opacity: 0 } : { width: '50%', opacity: 1 });
 
 const currentStep = computed(() => {
+  if (store.ui.b5 === 'success' && store.ui.b3 === 'success') return 5;
   if (store.ui.b3 === 'success' || store.ui.b3 === 'processing') return 4;
   if (store.ui.b2 === 'success' || store.ui.b2 === 'processing') return 3;
   if (store.ui.b1 === 'success' || store.ui.b1 === 'processing') return 2;
   return 1;
 });
-const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '决策报告', 4: '深度互动' }[currentStep.value] || ''));
+const stepName = computed(() => ({ 1: '构建世界', 2: '自生长推演', 3: '决策报告', 4: '深度互动', 5: '作战台' }[currentStep.value] || ''));
+function seedText(p) { return typeof p === 'string' ? p : (p?.text || ''); }
+function seedTitle(p) { return typeof p === 'string' ? p.slice(0, 8) : (p?.title || '预设'); }
+function applySeed(p) {
+  if (store.scenario.flagship && seedText(p) === store.scenario.flagship.seed) loadFlagshipProposition();
+  else store.seed = seedText(p);
+}
+async function applySimpleQuestion(question) {
+  store.seed = question;
+  if (store.scenario.id === 'xueqing' && !store.ops.loaded) await loadStoreOps();
+}
+const flagshipOn = computed(() => !!(store.scenario.flagship && store.seed === store.scenario.flagship.seed));
+const seedPlaceholder = computed(() => store.scenario.id === 'xueqing'
+  ? '例如：下周哪些促销该停？一句话就够'
+  : store.scenario.flagship?.title
+  ? '例：' + store.scenario.flagship.title
+  : ('例：' + (seedTitle(store.scenario.seedExamples?.[0]) || '描述你的场景…')));
 const isBusy = computed(() => store.ui.genRunning || store.ui.simRunning || store.ui.reportRunning || store.chat.running);
 const statusClass = computed(() => isBusy.value ? 'processing' : 'ready');
 const statusText = computed(() => isBusy.value ? 'Processing' : 'Ready');
@@ -513,10 +557,11 @@ const workflowTargets = {
   simulate: 'workbench-step-simulate',
   observe: 'workbench-step-observe',
   interview: 'workbench-step-interview',
+  act: 'workbench-step-act',
 };
 
 function focusWorkbenchTarget(key) {
-  const stepNumber = { whatIf: 1, simulate: 2, observe: 3, interview: 4 }[key];
+  const stepNumber = { whatIf: 1, simulate: 2, observe: 3, interview: 4, act: 5 }[key];
   if (stepNumber) expandStep(stepNumber);
   const target = document.getElementById(workflowTargets[key]);
   if (!target) return;
@@ -556,7 +601,7 @@ function confirmInitialize() {
   assumptionInput.value = '';
   analysisInput.value = '';
   collapsedSections.value = new Set();
-  collapsedSteps.value = new Set([2, 3, 4]);
+  collapsedSteps.value = new Set([2, 3, 4, 5]);
   systemPanelOpen.value = preservedSystemPanelOpen;
   comparisonMode.value = preservedComparisonMode;
   pushLog('已初始化当前场景，等待输入经营问题。', 'ac');
@@ -586,6 +631,35 @@ function graphSummary() {
     }).join('；');
 }
 
+// 决策页不展示方法、日期或历史口径；这些仍保留在 ACT 验证页。
+function decisionOnlyCopy(value) {
+  return String(value || '')
+    .replace(/[^。！？\n]*(?:训练期|盲测|回放|历史|POS|数据窗口|推演过程|模型评分)[^。！？\n]*(?:[。！？]|$)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function decisionSectionCopy(value) {
+  const lines = decisionOnlyCopy(value).split('\n').map((line) => line.trim()).filter(Boolean);
+  const points = lines.flatMap((line) => {
+    if (/^[-*•]/.test(line)) return [line];
+    return line.split(/(?<=[。！？])/).map((part) => part.trim()).filter(Boolean).map((part) => `- ${part}`);
+  });
+  return points.slice(0, 3).map((line) => line.length > 68 ? `${line.slice(0, 68)}…` : line).join('\n');
+}
+
+function decisionReportOutline() {
+  return {
+    title: '经营决策建议',
+    summary: '',
+    sections: [
+      { title: '为什么做' },
+      { title: '怎么执行' },
+      { title: '何时停止' },
+    ],
+  };
+}
+
 // 真流式报告：大纲一次性取，章节逐个用 SSE 逐 token 渲染
 async function genReportStream() {
   if (!store.entities.length) { pushLog('请先推演', 'err'); return; }
@@ -594,32 +668,53 @@ async function genReportStream() {
   store.reportOutline = null; store.reportSections = {}; store.report = null;
   store.causalChains = []; store.decisions = [];
   const summary = graphSummary();
-  const evidence = retrievalText() + comparisonEvidenceText();
+  const retailPrior = store.scenario.id === 'xueqing' && store.ops.loaded
+    ? '\n\n' + promotionWorldPriorText(store.ops.data, store.ops.worldMemory)
+    : '';
+  const hypothesisEvidence = store.ops.hypotheses.length
+    ? '\n\n【本轮模型提出的待验证关系】\n' + store.ops.hypotheses.slice(-16).map((h) =>
+      `- ${h.actor} / ${h.relation}：${h.hypothesis}（置信度 ${h.confidence}；证伪：${h.falsifier}）`).join('\n')
+    : '';
+  const evidence = retrievalText() + comparisonEvidenceText() + '\n\n' + posEvidenceText({ includeEvaluation: false, includeForecast: false }) + retailPrior + hypothesisEvidence;
   try {
-    pushLog('报告规划中…（先检索图谱证据）', 'ac');
-    const outline = await genOutline(evidence);
+    pushLog('报告生成中…（按店长决策版式整理）', 'ac');
+    store.decisions = await extractDecisions(summary, evidence);
+    const outline = decisionReportOutline();
+    const sections = outline.sections;
     store.reportOutline = outline;
-    pushLog(`报告大纲：${outline.sections?.length || 0} 章节`, 'ac');
-    const sections = outline.sections || [];
+    pushLog(`报告大纲：${sections.length} 个行动章节`, 'ac');
     const doneContents = [];
     for (let i = 0; i < sections.length; i++) {
       store.reportSections[i] = { content: '', status: 'generating' };
       pushLog(`流式生成章节 ${i + 1}/${sections.length}：${sections[i].title}…`, 'ac');
       const sectionSummary = summary + '\n\n' + evidence + '\n\n已有章节：' + doneContents.map(s => s.slice(0, 100)).join('；');
       const content = await streamChat(
-        [{ role: 'system', content: '你是' + store.scenario.domain + '决策分析师。撰写指定章节，Markdown，80-150字。' },
+        [{ role: 'system', content: '你是门店店长的经营决策顾问。报告前面已经有行动清单，你负责补足判断深度。每章只写 3 条项目符号：第一条写判断，第二条写依据，第三条写风险或什么情况停；每条 35–55 个汉字，使用直白门店语言。不要解释方法，不要空话，不要提日期、数据窗口、历史、盲测、回放、POS、模型或推演过程。' },
          { role: 'user', content: `报告标题：${outline.title || ''}\n当前章节：${sections[i].title}\n推演数据：\n${sectionSummary}\n\n请撰写本章节正文。直接输出正文，不要重复输出章节标题，不要使用 Markdown 一级或二级标题作为开头。` }],
-        { temperature: 0.6, max_tokens: 1500, onToken: (delta, acc) => { store.reportSections[i] = { content: acc, status: 'generating' }; } }
+        { temperature: 0.4, max_tokens: 700, onToken: (delta, acc) => { store.reportSections[i] = { content: acc, status: 'generating' }; } }
       );
-      doneContents.push(content || '（生成失败）');
-      store.reportSections[i] = { content: content || '（生成失败）', status: 'done' };
+      const decisionContent = decisionSectionCopy(content) || '（未生成可展示的决策内容）';
+      doneContents.push(decisionContent);
+      store.reportSections[i] = { content: decisionContent, status: 'done' };
       pushLog(`✓ 章节 ${i + 1} 完成`, 'ok');
     }
     store.causalChains = await extractCausalChains(summary);
-    store.decisions = await extractDecisions(summary);
+    matchPlaybookToGraph();
     const allContent = sections.map((s, i) => `## ${s.title}\n${store.reportSections[i]?.content || ''}`).join('\n\n');
-    store.report = { verdict: outline.summary || outline.title, confidence: 0.5, confidence_note: '多章节 ReACT 报告（流式）', fullContent: allContent };
+    store.report = {
+      verdict: decisionOnlyCopy(outline.summary) || '请按以下建议执行并观察结果。',
+      confidence: 0,
+      confidence_note: '推演关系与 POS 证据尚需通过受控试验校验；不形成收益承诺。',
+      execution_decision: '暂不全量执行；仅在责任角色完成数据核验并人工审批后，启动有限范围的对照试验。',
+      fullContent: allContent,
+    };
+    if (store.scenario.id === 'xueqing' && store.ops.loaded) {
+      // 评分发生在模型报告已经封存之后，且不会自动写入世界记忆。
+      store.ops.hypothesisScores = scorePromotionHypotheses(store.ops.data, store.ops.hypotheses);
+      pushLog(`盲测评分完成：${store.ops.hypothesisScores.filter((score) => score.status !== 'insufficient').length} 条可观测关系；结果未自动反哺模型。`, 'ac');
+    }
     store.ui.b3 = 'success'; store.ui.b4 = 'pending';
+    if (store.ops.loaded) store.ui.b5 = 'success';
     pushLog('✓ 决策报告已生成（流式）', 'ok');
     if (store.entities.length) await saveOrUpdateExperiment();   // 把报告/决策/因果链回写同一份云端记录
   } catch (err) {
@@ -635,20 +730,75 @@ async function extractCausalChains(summary) {
     return (data.chains || []).map(c => ({ ...c, path: (c.path || []).map(name => { const e = store.entities.find(x => x.name === name); return e ? e.id : null; }).filter(Boolean) }));
   } catch (e) { pushLog('因果链提取失败：' + e.message, 'err'); return []; }
 }
-async function extractDecisions(summary) {
+async function extractDecisions(summary, evidence = '') {
+  if (store.ops.loaded && store.scenario.id === 'xueqing') {
+    const candidates = promotionDecisionCandidates(store.ops.data);
+    if (!candidates.length) {
+      pushLog('规则没有放行任何促销候选，本轮不生成可审批动作。', 'ac');
+      return [];
+    }
+    try {
+      const { data } = await api.post('/api/chat', {
+        messages: [
+          { role: 'system', content: '你是零售推演决策选择器。你只能从给定候选中选择最多三项，并按推演关系与提供的证据排序。不得创造动作、SKU、数值、顾客事实或收益承诺。输出严格 JSON。' },
+          { role: 'user', content: `推演终态：\n${summary}\n\n可用证据：\n${evidence}\n\n规则已放行的候选：\n${candidates.map((candidate) => `- id=${candidate.id}；SKU=${candidate.sku}；动作=${candidate.action}；规则=${candidate.rule}；诊断=${candidate.diagnosis}`).join('\n')}\n\n请选择最值得做的小范围动作。输出JSON：{"selections":[{"candidateId":"必须完全匹配候选 id","priority":1,"reasoning":"只解释该候选为何适合当前推演和证据，不写新事实","confidence":0.0}]}` },
+        ],
+        json: true,
+        temperature: 0.35,
+        max_tokens: 700,
+      });
+      const decisions = modelSelectedPromoDecisions(store.ops.data, data.selections);
+      if (!decisions.length) {
+        pushLog('模型没有选择有效候选，本轮不生成可审批动作。', 'ac');
+        return [];
+      }
+      pushLog(`模型已在 ${candidates.length} 个规则放行候选中选择 ${decisions.length} 项动作。`, 'ac');
+      return decisions;
+    } catch (err) {
+      pushLog('动作选择失败：' + err.message + '；本轮不生成可审批动作。', 'err');
+      return [];
+    }
+  }
   try {
-    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n生成3-5条决策建议。输出JSON：{"decisions":[{"id":"d1","action":"具体行动","reasoning":"理由","expected_gain":"预期增益","confidence":0.0-1.0}]}' }], json: true, temperature: 0.5, max_tokens: 1000 });
-    return (data.decisions || []).map((d, i) => ({ ...d, id: d.id || 'd' + (i + 1), status: 'proposed' }));
+    const { data } = await api.post('/api/chat', { messages: [{ role: 'system', content: '你是' + store.scenario.domain + '决策顾问。输出JSON。不得承诺收益、编造百分比或给出全量执行指令。' }, { role: 'user', content: '推演终态：\n' + summary + '\n\n可用 POS 证据：\n' + posEvidenceText() + '\n\n生成3-5条有限范围经营试验建议。每条必须有具体对象、责任角色、执行前数据、处理组动作、可比对照组、观察指标、停止条件与升级条件。输出JSON：{"decisions":[{"id":"d1","action":"针对具体对象的试验动作","owner":"责任角色","reasoning":"只引用已有实体、关系或 POS 证据的理由","based_on":["已有实体或关系"],"required_data":["试验前需要的数据"],"pilot_scope":"最小可控业务范围","treatment":"处理组动作","control":"对照组保持不变的策略","metric":"观察指标","stop_rule":"停止条件","promotion_rule":"提交全量审批的条件"}]}' }], json: true, temperature: 0.35, max_tokens: 1400 });
+    const known = store.entities.map(e => e.name).filter(Boolean);
+    return (data.decisions || []).map((d, i) => {
+      const basedOn = (d.based_on || []).filter(x => known.some(name => String(x).includes(name)));
+      return {
+        id: d.id || 'd' + (i + 1),
+        action: d.action || '围绕关键传导链开展小范围验证',
+        owner: d.owner || '业务负责人',
+        reasoning: d.reasoning || '推演中存在待核验的传导关系。',
+        based_on: basedOn,
+        required_data: Array.isArray(d.required_data) && d.required_data.length ? d.required_data : ['与该行动相关的实际业务数据'],
+        pilot_scope: d.pilot_scope || '由责任角色选择一个最小可控的门店、客群或商品范围。',
+        treatment: d.treatment || d.action || '在处理组执行经人工审批的单一干预。',
+        control: d.control || '选择条件相近且保持原策略的对照组。',
+        metric: d.metric || '执行前定义可观测的业务指标与对照组。',
+        stop_rule: d.stop_rule || '证据不足、指标恶化或超出授权范围时停止并复核。',
+        promotion_rule: d.promotion_rule || '处理组与对照组结果可比，且核心指标达到预先约定阈值后，才提交全量审批。',
+        expected_gain: '待真实数据与试验验证',
+        confidence: 0,
+        status: 'pilot-only',
+        execution: '暂不全量执行；经人工审批后仅启动小范围试验',
+      };
+    });
   } catch (e) { pushLog('决策提取失败：' + e.message, 'err'); return []; }
 }
 
 function badgeText(s) { return s === 'processing' ? 'Running' : s === 'paused' ? 'Paused' : s === 'success' ? 'Done' : 'Pending'; }
 
 // WHAT IF：假设事件管理
+function addAssumptionText(t) {
+  const text = String(t || '').trim();
+  if (!text) return;
+  if (store.assumptions.some((a) => a.text === text)) return;
+  store.assumptions.push({ id: 'asm' + Date.now(), text });
+}
 function addAssumption() {
   const t = assumptionInput.value.trim();
   if (!t) return;
-  store.assumptions.push({ id: 'asm' + Date.now(), text: t });
+  addAssumptionText(t);
   assumptionInput.value = '';
 }
 function removeAssumption(id) {
@@ -709,46 +859,23 @@ function showNode(e) {
 }
 
 function onChatFromGraph(node) { startChat(node.id); }
+
+// ---------- 人工介入 ----------
+const ivOpen = ref(false);
+const ivNodeId = ref('');
+function openIntervention(node) { ivNodeId.value = node?.id || ''; ivOpen.value = true; }
 function entityName(id) { return store.entities.find(e => e.id === id)?.name || id; }
 function highlightCausalChain(idx) {
   store.causalChains.forEach((c, i) => { c._highlight = (i === idx) ? !c._highlight : false; });
 }
 
-// 对比模式辅助函数
-function lastKpiVal(curve) {
-  if (!curve || !curve.length) return null;
-  return curve[curve.length - 1].value;
-}
-function kpiDiffClass(kpi) {
-  const b = lastKpiVal(store.comparison.baseline?.kpiCurves?.[kpi]);
-  const w = lastKpiVal(store.comparison.withAssumptions?.kpiCurves?.[kpi]);
-  if (b == null || w == null) return '';
-  return w > b ? 'kpi-up' : w < b ? 'kpi-down' : '';
-}
-function kpiDelta(kpi) {
-  const b = lastKpiVal(store.comparison.baseline?.kpiCurves?.[kpi]);
-  const w = lastKpiVal(store.comparison.withAssumptions?.kpiCurves?.[kpi]);
-  if (b == null || w == null) return null;
-  return w - b;
-}
-
-// 对照实验证据块：注入报告 prompt，让报告可引用量化差异
+// 对照世界只比较图谱结构，不把模型打分伪装成经营数值。
 function comparisonEvidenceText() {
   const c = store.comparison;
   if (!(comparisonMode.value && c.baseline && c.withAssumptions)) return '';
-  const kpis = Object.keys(c.withAssumptions.kpiCurves || {});
-  if (!kpis.length) return '';
-  const lines = kpis.map(k => {
-    const b = lastKpiVal(c.baseline.kpiCurves[k]);
-    const w = lastKpiVal(c.withAssumptions.kpiCurves[k]);
-    if (b == null || w == null) return `- ${k}：基线 ${b ?? '?'} → 干预 ${w ?? '?'}`;
-    const d = w - b;
-    return `- ${k}：基线 ${b.toFixed(2)} → 干预 ${w.toFixed(2)}（${d >= 0 ? '+' : ''}${d.toFixed(2)}）`;
-  });
   return '\n对照实验证据（同一命题下，无假设基线世界 vs 带假设干预世界，各轮独立推演）：\n' +
     `- 基线世界规模：${c.baseline.entities.length} 实体 / ${c.baseline.edges.length} 关系\n` +
-    `- 干预世界规模：${c.withAssumptions.entities.length} 实体 / ${c.withAssumptions.edges.length} 关系\n` +
-    '- KPI 终值对比：\n' + lines.join('\n');
+    `- 干预世界规模：${c.withAssumptions.entities.length} 实体 / ${c.withAssumptions.edges.length} 关系`;
 }
 
 async function sendChat() {
@@ -837,7 +964,6 @@ async function runComparison() {
     edges: JSON.parse(JSON.stringify(store.edges)),
     growth: JSON.parse(JSON.stringify(store.growth)),
     episodes: JSON.parse(JSON.stringify(store.episodes)),
-    kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
     activityFeed: JSON.parse(JSON.stringify(store.activityFeed)),
     lockedIds: [...store.lockedIds],
     simRound: store.simRound,
@@ -865,7 +991,6 @@ async function runComparison() {
       entities: JSON.parse(JSON.stringify(store.entities)),
       edges: JSON.parse(JSON.stringify(store.edges)),
       growth: [...store.growth],
-      kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
     };
     pushLog(`✓ 基线世界完成：${store.comparison.baseline.entities.length} 实体 / ${store.comparison.baseline.edges.length} 关系`, 'ok');
 
@@ -880,7 +1005,6 @@ async function runComparison() {
       entities: JSON.parse(JSON.stringify(store.entities)),
       edges: JSON.parse(JSON.stringify(store.edges)),
       growth: [...store.growth],
-      kpiCurves: JSON.parse(JSON.stringify(store.kpiCurves)),
     };
     pushLog(`✓ 干预世界完成：${store.comparison.withAssumptions.entities.length} 实体 / ${store.comparison.withAssumptions.edges.length} 关系`, 'ok');
 
@@ -892,7 +1016,7 @@ async function runComparison() {
     // 4. 恢复现场
     store.assumptions = saved.assumptions;
     store.entities = saved.entities; store.edges = saved.edges; store.growth = saved.growth;
-    store.episodes = saved.episodes; store.kpiCurves = saved.kpiCurves;
+    store.episodes = saved.episodes;
     store.activityFeed = saved.activityFeed; store.lockedIds = saved.lockedIds;
     store.simRound = saved.simRound; store.entN = saved.entN;
     Object.assign(store.ui, saved.ui);
@@ -924,7 +1048,8 @@ async function runDemoSequence() {
   if (demoNode) {
     startChat(demoNode.id);
     expandStep(4);
-    pushLog('💬 已自动打开与「价格敏感客群」的访谈对话', 'ac');
+    const q = store.scenario.flagship?.interviewQ || '硬折扣来了，你会不会走？';
+    pushLog('💬 已打开与「价格敏感客群」的访谈。问：' + q, 'ac');
   }
 }
 
@@ -933,9 +1058,10 @@ function snapshotState() {
     entities: store.entities, edges: store.edges, growth: store.growth,
     report: store.report, episodes: store.episodes,
     reportOutline: store.reportOutline, reportSections: store.reportSections,
-    kpiCurves: store.kpiCurves, decisions: store.decisions,
+    decisions: store.decisions,
     causalChains: store.causalChains, lockedIds: store.lockedIds,
     simRound: store.simRound, seed: store.seed, assumptions: store.assumptions,
+    retailWorld: { worldMemory: store.ops.worldMemory, hypotheses: store.ops.hypotheses, hypothesisScores: store.ops.hypothesisScores },
     scenarioId: store.scenarioId,
   };
 }
@@ -966,7 +1092,13 @@ async function runSimAuto() {
   if (store.entities.length) await saveOrUpdateExperiment();
 }
 // 开启全新世界（生成实体 / 加载示例）时，重置当前记录 id，下次推演另存为新条目
-function onGenEntities() { currentExpId.value = null; return genEntities(); }
+async function onGenEntities() {
+  currentExpId.value = null;
+  if (store.scenario.id === 'xueqing' && isPromotionSandboxQuestion(store.seed) && !store.ops.loaded) {
+    await loadStoreOps();
+  }
+  return genEntities();
+}
 function onLoadDemo() { currentExpId.value = null; return loadDemo(); }
 // 历史面板
 async function openHistory() { await refreshHistory(); historyOpen.value = true; }
@@ -991,8 +1123,9 @@ function persistNow() {
       entities: store.entities, edges: store.edges, growth: store.growth,
       report: store.report, episodes: store.episodes,
       reportOutline: store.reportOutline, reportSections: store.reportSections,
-      kpiCurves: store.kpiCurves, decisions: store.decisions, causalChains: store.causalChains,
+      decisions: store.decisions, causalChains: store.causalChains,
       lockedIds: store.lockedIds, simRound: store.simRound,
+      retailWorld: { worldMemory: store.ops.worldMemory, hypotheses: store.ops.hypotheses, hypothesisScores: store.ops.hypothesisScores },
       ui: { b1: store.ui.b1, b2: store.ui.b2, b3: store.ui.b3, step1Done: store.ui.step1Done },
     }));
   } catch (e) { /* localStorage 满/禁用时静默 */ }
@@ -1010,8 +1143,11 @@ function restoreLocal() {
     store.entities = s.entities; store.edges = s.edges || []; store.growth = s.growth || [];
     store.report = s.report || null; store.episodes = s.episodes || {};
     store.reportOutline = s.reportOutline || null; store.reportSections = s.reportSections || {};
-    store.kpiCurves = s.kpiCurves || {}; store.decisions = s.decisions || []; store.causalChains = s.causalChains || [];
+    store.decisions = s.decisions || []; store.causalChains = s.causalChains || [];
     store.lockedIds = s.lockedIds || []; store.simRound = s.simRound || store.growth.length ? Math.max(0, (s.simRound ?? store.growth.length - 1)) : 0;
+    store.ops.worldMemory = s.retailWorld?.worldMemory || [];
+    store.ops.hypotheses = s.retailWorld?.hypotheses || [];
+    store.ops.hypothesisScores = s.retailWorld?.hypothesisScores || [];
     Object.assign(store.ui, { b1: 'success', b2: 'success', b3: s.report ? 'success' : 'pending', step1Done: true });
     pushLog('♻ 已从本地恢复上次推演：' + store.entities.length + ' 实体 / ' + store.edges.length + ' 关系', 'ac');
   } catch (e) { /* 损坏数据直接忽略 */ }
@@ -1027,8 +1163,11 @@ async function loadExperiment(id) {
       store.growth = data.state.growth || []; store.report = data.state.report || null;
       store.episodes = data.state.episodes || {}; store.reportOutline = data.state.reportOutline || null;
       store.reportSections = data.state.reportSections || {};
-      store.kpiCurves = data.state.kpiCurves || {}; store.decisions = data.state.decisions || [];
+      store.decisions = data.state.decisions || [];
       store.causalChains = data.state.causalChains || []; store.lockedIds = data.state.lockedIds || [];
+      store.ops.worldMemory = data.state.retailWorld?.worldMemory || [];
+      store.ops.hypotheses = data.state.retailWorld?.hypotheses || [];
+      store.ops.hypothesisScores = data.state.retailWorld?.hypothesisScores || [];
       store.simRound = data.state.simRound ?? Math.max(0, store.growth.length - 1);
       store.ui.b1 = 'success'; store.ui.b2 = 'success'; store.ui.b3 = store.report ? 'success' : 'pending'; store.ui.step1Done = true;
       pushLog('回看推演：' + data.name, 'ac');
@@ -1036,7 +1175,15 @@ async function loadExperiment(id) {
   } catch (e) { pushLog('加载失败：' + e.message, 'err'); }
 }
 
-watch(() => store.logs.length, async () => { await nextTick(); if (termRef.value) termRef.value.scrollTop = termRef.value.scrollHeight; });
+watch(() => store.chat.target, (id) => {
+  const f = store.scenario.flagship;
+  if (!id || !f) return;
+  if (id === f.interviewId && f.interviewQ) chatInput.value = f.interviewQ;
+  else {
+    const hit = (f.followups || []).find(x => x.id === id);
+    if (hit) chatInput.value = hit.q;
+  }
+});
 watch(() => store.chat.messages.length, async () => { await nextTick(); if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight; });
 watch(() => store.analysis.messages.length, async () => { await nextTick(); if (analysisRef.value) analysisRef.value.scrollTop = analysisRef.value.scrollHeight; });
 watch(() => store.activityFeed.length, async () => { await nextTick(); if (activityRef.value) activityRef.value.scrollTop = activityRef.value.scrollHeight; });
@@ -1047,8 +1194,12 @@ watch(() => store.ui.b2, (status, previous) => {
   if (status === 'success' && previous !== 'success') expandStep(3);
 });
 watch(() => store.ui.b3, (status, previous) => {
-  if (status === 'success' && previous !== 'success') expandStep(4);
+  if (status === 'success' && previous !== 'success') {
+    expandStep(4);
+    if (store.ops.loaded) expandStep(5);
+  }
 });
+watch(() => store.entities.length, () => { matchPlaybookToGraph(); });
 onMounted(() => { restoreLocal(); refreshHealth(); refreshHistory(); });
 onBeforeUnmount(stopAdjust);
 </script>
